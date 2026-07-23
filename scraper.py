@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright
 # CONFIGURAÇÕES DA INTEGRAÇÃO
 # ==========================================
 # ⚠️ ATENÇÃO: Cole a URL final do Apps Script que termina em /exec
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbztJ0eU-OajlwQKL7VC7qSzpGjQ1375U5exEdNx49o/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbztJ0eU-OajlwQKL7VC7qSzpGjQ1375U5exEdNx49c4TAcA-If4NnFI1OryoDaOHR9REw/exec"
 
 # Token de acesso do link do Theo Borges
 TOKEN = "8f88b4c964"
