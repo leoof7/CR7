@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
 # ⚠️ ATENÇÃO: Cole a URL final do Apps Script que termina em /exec
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxqaxfgTCC7eG9JsFe1GuufD33zzH8gMOzaOAxJj0MdPCZwQxcSRpvP5kFCNGt9vxI9mg/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbw5drrqteZfG8oPVz1yv0xXDfs1LgRRr9zWabW-3xsRq7vr8wLS-OYh-e1RUn4nO1wA4Q/exec"
 
 # Recebe o Token dinâmico do GitHub Actions (ou usa um padrão caso não encontre)
 TOKEN = os.environ.get("SITE_TOKEN", "8f88b4c964")
