@@ -4,7 +4,7 @@ import requests
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbztl_Vllk89gi8n84Kbi_IEDqOIvF5pFKpGW-xqwFQlJIKGmYVBUVimNb1zgFC7YOavfA/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxCd8KI_deoR_Y7l9lAryJJNk9TqEAJiWxE7fxkhIY63DCIfkykxqQUbGZqAhgxK4IBhQ/exec"
 
 # BLINDAGEM DO TOKEN
 TOKEN = os.environ.get("SITE_TOKEN", "").strip()
