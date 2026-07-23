@@ -1,15 +1,14 @@
+import os
 import json
 import requests
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-# ==========================================
-# CONFIGURAÇÕES DA INTEGRAÇÃO
-# ==========================================
 # ⚠️ ATENÇÃO: Cole a URL final do Apps Script que termina em /exec
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzH8EB9LI3jziw1rbWxJki7CaGA5LT3vQyOw9LRn5iif3DFBDCQv4NZTLxkDZAPhXPEHA/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwmZYN6kQye0a5NmnEa6wOqQgKcFwqN551Fy4yWSMBKWcp11qQ1VW6VG1yEfjy7R1Bg/exec"
 
-TOKEN = "8f88b4c964"
+# Recebe o Token dinâmico do GitHub Actions (ou usa um padrão caso não encontre)
+TOKEN = os.environ.get("SITE_TOKEN", "8f88b4c964")
 DIAS_PARA_RASPAR = ["ontem", "hoje", "amanha"]
 
 EXTRACTOR_BASIC_JS = """
@@ -18,7 +17,6 @@ EXTRACTOR_BASIC_JS = """
     try {
         let hImg = document.querySelector('.card-match-teams-block.home img');
         if (hImg) { lc = hImg.src || ""; if (hImg.alt) m = hImg.alt.trim(); }
-        
         let aImg = document.querySelector('.card-match-teams-block.away img');
         if (aImg) { lf = aImg.src || ""; if (aImg.alt) v = aImg.alt.trim(); }
 
@@ -43,10 +41,9 @@ EXTRACTOR_BASIC_JS = """
 """
 
 def run_scraper():
-    print("🤖 Motor Python (Abertura de Sanfonas + Blocos de Estatísticas)...")
+    print(f"🤖 Motor Python Ligado | Usando Token: {TOKEN}")
     jogos_extraidos = []
     links_visitados = set()
-    
     hoje = datetime.now()
     mapa_datas = {
         "ontem": (hoje - timedelta(days=1)).strftime("%Y-%m-%d"),
@@ -71,18 +68,16 @@ def run_scraper():
                 page.goto(url_lista, wait_until="domcontentloaded", timeout=30000)
                 page.wait_for_timeout(3000)
                 
-                # 🔓 ABRINDO AS SANFONAS (LIGAS OCULTAS)
-                print("  🔄 Expandindo ligas ocultas...")
+                # Expandindo as sanfonas
                 botoes_expandir = page.locator('.competition-card.collapsed .competition-header')
                 count = botoes_expandir.count()
                 for i in range(count):
                     try: botoes_expandir.nth(i).click(timeout=1000)
                     except: pass
-                page.wait_for_timeout(2000) # Espera os links aparecerem
+                page.wait_for_timeout(2000)
                 
                 hrefs = page.eval_on_selector_all("a", "elements => elements.map(e => e.href)")
-                game_links = list(set([href for href in hrefs if "/game/" in href])) # Filtra únicos
-                print(f"✅ {len(game_links)} jogos encontrados após expandir tudo.")
+                game_links = list(set([href for href in hrefs if "/game/" in href]))
                 
                 for link in game_links:
                     if link in links_visitados: continue
@@ -90,34 +85,30 @@ def run_scraper():
                     
                     try:
                         page.goto(link, wait_until="domcontentloaded", timeout=30000)
-                        page.wait_for_timeout(4000) # Espera aba Geral carregar
+                        page.wait_for_timeout(4000)
                         
-                        # Extrai a raiz (Nomes e Odds)
                         dados = page.evaluate(EXTRACTOR_BASIC_JS)
                         
                         if dados["mandante"] == "Mandante" or dados["mandante"] == "":
-                            print(f"  ⚠️ Ignorado (Nomes Vazios): {link}")
                             continue
 
-                        # 📊 NAVEGANDO NAS ABAS DE ESTATÍSTICAS
                         bloco_desempenho = ""
                         bloco_gols = ""
-                        
-                        # Clica em Desempenho
-                        try:
-                            page.locator("text='Desempenho'").first.click(timeout=3000)
-                            page.wait_for_timeout(1500)
-                            bloco_desempenho = page.evaluate("() => { let el = document.querySelector('.tab-content.active'); return el ? el.innerText : ''; }")
-                        except: pass
-                        
-                        # Clica em Gols
-                        try:
-                            page.locator("text='Gols'").first.click(timeout=3000)
-                            page.wait_for_timeout(1500)
-                            bloco_gols = page.evaluate("() => { let el = document.querySelector('.tab-content.active'); return el ? el.innerText : ''; }")
-                        except: pass
 
-                        # Empacota no JSON
+                        # OTIMIZAÇÃO: Se for jogo de "ontem" e já está FT, não perde tempo lendo as abas de desempenho
+                        if not (dia == "ontem" and dados["status"] == "FT"):
+                            try:
+                                page.locator("text='Desempenho'").first.click(timeout=3000)
+                                page.wait_for_timeout(1500)
+                                bloco_desempenho = page.evaluate("() => { let el = document.querySelector('.tab-content.active'); return el ? el.innerText : ''; }")
+                            except: pass
+                            
+                            try:
+                                page.locator("text='Gols'").first.click(timeout=3000)
+                                page.wait_for_timeout(1500)
+                                bloco_gols = page.evaluate("() => { let el = document.querySelector('.tab-content.active'); return el ? el.innerText : ''; }")
+                            except: pass
+
                         dados["eventosJSON"] = json.dumps({
                             "geral": dados.pop("texto_geral"),
                             "desempenho": bloco_desempenho,
@@ -126,27 +117,22 @@ def run_scraper():
 
                         dados["fixtureId"] = link.split("/game/")[1].split("?")[0]
                         dados["dataJogo"] = data_oficial
-                        
                         jogos_extraidos.append(dados)
-                        print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']}")
+                        print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} ({dados['status']})")
                         
                     except Exception as e:
-                        print(f"  ❌ ERRO AO LER O JOGO: {link}")
-
+                        pass
             except Exception as e:
-                print(f"⚠️ Erro ao carregar a lista de {dia}.")
+                pass
 
         browser.close()
 
     if jogos_extraidos:
-        print(f"\n🚀 Enviando {len(jogos_extraidos)} jogos para o Google Sheets...")
         try:
             resp = requests.post(WEBHOOK_URL, json={"jogos": jogos_extraidos})
             print(f"Resposta da Planilha: {resp.text}")
         except Exception as e:
-            print(f"❌ Erro de Conexão com o Google: {e}")
-    else:
-        print("\n🤷 Nenhum jogo processado com sucesso.")
+            pass
 
 if __name__ == "__main__":
     run_scraper()
