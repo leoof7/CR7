@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
 # ⚠️ ATENÇÃO: Cole a URL final do Apps Script que termina em /exec
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwmZYN6kQye0a5NmnEa6wOqQgKcFwqN551Fy4yWSMBKWcp11qQ1VW6VG1yEfjy7R1Bg/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxqaxfgTCC7eG9JsFe1GuufD33zzH8gMOzaOAxJj0MdPCZwQxcSRpvP5kFCNGt9vxI9mg/exec"
 
 # Recebe o Token dinâmico do GitHub Actions (ou usa um padrão caso não encontre)
 TOKEN = os.environ.get("SITE_TOKEN", "8f88b4c964")
@@ -30,10 +30,24 @@ EXTRACTOR_BASIC_JS = """
         
         let center = document.querySelector('.card-match-center');
         if (center) {
-            let tMatch = center.innerText.match(/\\d{2}:\\d{2}/);
+            // Pega a hora ou os minutos do jogo
+            let timeText = center.innerText;
+            let tMatch = timeText.match(/\\d{2}:\\d{2}/);
             if (tMatch) h = tMatch[0];
-            let scoreMatch = center.innerText.match(/(\\d+)\\s*-\\s*(\\d+)/);
-            if (scoreMatch) { gc = scoreMatch[1]; gf = scoreMatch[2]; st = "FT"; }
+            
+            // Verifica placar
+            let scoreMatch = timeText.match(/(\\d+)\\s*-\\s*(\\d+)/);
+            if (scoreMatch) { 
+                gc = scoreMatch[1]; gf = scoreMatch[2]; 
+                // Se tiver ' (apóstrofo de minutos) ou a palavra Vivo, é LIVE, senão é FT
+                if (timeText.includes("'") || timeText.toLowerCase().includes("vivo")) {
+                    st = "LIVE";
+                    let minMatch = timeText.match(/\\d+'/);
+                    if(minMatch) h = minMatch[0]; // Salva o minuto no lugar da hora
+                } else {
+                    st = "FT";
+                }
+            }
         }
     } catch(e) {}
     return { mandante: m, visitante: v, competicao: comp, hora: h, status: st, gC: gc, gF: gf, oddC: oc, oddF: of, logoC: lc, logoF: lf, texto_geral: document.body.innerText.substring(0, 5000) };
