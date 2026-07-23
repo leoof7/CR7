@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright
 
 # ⚠️ ATENÇÃO: Cole a URL final do Apps Script que termina em /exec
 WEBHOOK_URL = "COLE_AQUI_A_SUA_URL_EXEC"
-TOKEN = os.environ.get("SITE_TOKEN", "8f88b4c964")
+TOKEN = os.environ.get("https://script.google.com/macros/s/AKfycbw78kLQS9OqZh5ixJGQ85zjDlAN9Tb6VyB-35Sm9HJPJowFFJw4_63fUyiOWTgPlf10Ig/exec")
 DIAS_PARA_RASPAR = ["ontem", "hoje", "amanha"]
 
 EXTRACTOR_JS = """
