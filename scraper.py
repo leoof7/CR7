@@ -1,6 +1,5 @@
 import json
 import requests
-import re
 from playwright.sync_api import sync_playwright
 
 # ==========================================
@@ -12,8 +11,74 @@ WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyqpbiSNKRhbJ5qdreOU_eV6q
 TOKEN = "8f88b4c964"
 DIAS_PARA_RASPAR = ["ontem", "hoje", "amanha"]
 
+# Script de extração cirúrgica (Injetado direto no navegador)
+EXTRACTOR_JS = """
+() => {
+    let m_name = "Mandante", v_name = "Visitante";
+    let logoC = "", logoF = "";
+    let oddC = "", oddF = "";
+    let status = "NS", gC = "-", gF = "-";
+    let time_str = "19:00", comp = "Geral";
+
+    // 1. Extração do Mandante (Baseado no seu print)
+    let homeImg = document.querySelector('.card-match-teams-block.home img');
+    if(homeImg) {
+        m_name = homeImg.alt || "Mandante";
+        logoC = homeImg.src || "";
+    }
+    let homeOdd = document.querySelector('.card-match-teams-block.home .card-match-odds-item');
+    if(homeOdd) oddC = homeOdd.innerText.trim();
+
+    // 2. Extração do Visitante
+    let awayImg = document.querySelector('.card-match-teams-block.away img');
+    if(awayImg) {
+        v_name = awayImg.alt || "Visitante";
+        logoF = awayImg.src || "";
+    }
+    let awayOdd = document.querySelector('.card-match-teams-block.away .card-match-odds-item');
+    if(awayOdd) oddF = awayOdd.innerText.trim();
+
+    // 3. Extração do Centro (Placar e Hora)
+    let centerDiv = document.querySelector('.card-match-center');
+    if(centerDiv) {
+        let text = centerDiv.innerText;
+        let scoreMatch = text.match(/(\\d+)\\s*-\\s*(\\d+)/);
+        if(scoreMatch) {
+            gC = scoreMatch[1];
+            gF = scoreMatch[2];
+            status = "FT"; // Se tem placar, finalizou
+        }
+        let timeMatch = text.match(/\\d{2}:\\d{2}/);
+        if(timeMatch) time_str = timeMatch[0];
+    }
+    
+    // 4. Competição
+    let headerDiv = document.querySelector('.card-match-header');
+    if(headerDiv) {
+        comp = headerDiv.innerText.replace(/\\n/g, ' ').trim() || "Geral";
+    }
+
+    let fullText = document.body.innerText;
+
+    return {
+        mandante: m_name,
+        visitante: v_name,
+        oddC: oddC,
+        oddF: oddF,
+        logoC: logoC,
+        logoF: logoF,
+        gC: gC,
+        gF: gF,
+        status: status,
+        hora: time_str,
+        competicao: comp,
+        texto: fullText.substring(0, 8000)
+    };
+}
+"""
+
 def run_scraper():
-    print("🤖 Iniciando Motor Python Playwright (Extração Profunda)...")
+    print("🤖 Iniciando Motor Python Playwright (Modo Sniper)...")
     jogos_extraidos = []
     links_visitados = set()
 
@@ -23,106 +88,60 @@ def run_scraper():
 
         for dia in DIAS_PARA_RASPAR:
             url_lista = f"https://clube.theoborges.com/matches?dia={dia}&t={TOKEN}"
-            print(f"📍 Acessando lista: {dia.upper()}")
+            print(f"\\n📍 Lendo lista: {dia.upper()}")
             
             try:
-                page.goto(url_lista, wait_until="networkidle", timeout=15000)
+                # Espera os elementos da lista aparecerem
+                page.goto(url_lista, wait_until="networkidle", timeout=20000)
+                page.wait_for_timeout(2000) # Fôlego extra para o React renderizar
+                
                 hrefs = page.eval_on_selector_all("a", "elements => elements.map(e => e.href)")
                 game_links = [href for href in hrefs if "/game/" in href]
                 
-                print(f"✅ {len(game_links)} jogos encontrados para {dia}.")
+                print(f"✅ {len(game_links)} jogos listados.")
                 
                 for link in game_links:
                     if link in links_visitados: continue
                     links_visitados.add(link)
                     
                     try:
-                        print(f"  ⏳ Lendo dados reais de: {link}")
-                        # networkidle é o segredo: ele espera a tela carregar 100%
+                        print(f"  ⏳ Lendo: {link}")
                         page.goto(link, wait_until="networkidle", timeout=15000)
                         
-                        # Captura o texto 100% renderizado da tela
-                        texto_tela = page.evaluate("() => document.body.innerText")
-                        # Captura os links das imagens (Escudos)
-                        escudos = page.evaluate("() => Array.from(document.querySelectorAll('img')).map(i => i.src).filter(s => s.includes('team-image-proxy'))")
-                        # Captura o banco de dados interno da página
-                        next_data = page.evaluate("() => { let el = document.getElementById('__NEXT_DATA__'); return el ? el.innerText : null; }")
+                        # Espera a caixa principal do jogo aparecer antes de tentar ler (Blindagem crucial)
+                        page.wait_for_selector('.card-match', timeout=5000)
+                        
+                        # Roda o script cirúrgico que criamos com base no seu print
+                        dados = page.evaluate(EXTRACTOR_JS)
                         
                         fixture_id = link.split("/game/")[1].split("?")[0]
-                        m_name, v_name, comp = "Mandante", "Visitante", "Geral"
-                        date_str, time_str = "", "19:00"
-                        status, gC, gF = "NS", "-", "-"
-                        odd_c, odd_f = "", ""
+                        dados["fixtureId"] = fixture_id
                         
-                        # Tentativa 1: Via banco de dados oculto (JSON)
-                        if next_data:
-                            try:
-                                data = json.loads(next_data)
-                                match = data.get("props", {}).get("pageProps", {}).get("match", {})
-                                m_name = match.get("homeTeam", {}).get("name", m_name)
-                                v_name = match.get("awayTeam", {}).get("name", v_name)
-                                comp = match.get("league", {}).get("name", comp)
-                                if match.get("date"):
-                                    date_str = match["date"].split("T")[0]
-                                    time_str = match["date"].split("T")[1][:5]
-                                s = match.get("status", "")
-                                status = "FT" if s == "finished" else ("LIVE" if s == "in_progress" else "NS")
-                                if match.get("homeScore") is not None: gC = str(match["homeScore"])
-                                if match.get("awayScore") is not None: gF = str(match["awayScore"])
-                            except: pass
+                        # Controle de falha
+                        if dados["mandante"] == "Mandante":
+                            print(f"  ⚠️ Falhou ao capturar nomes: {link}")
+                            continue
 
-                        # Tentativa 2: Caçar os nomes direto no texto renderizado se o JSON falhar
-                        if m_name == "Mandante":
-                            m_match = re.search(r"Partidas\s+(.*?)\s+(.*?)\s+\d{2}:\d{2}", texto_tela, re.IGNORECASE)
-                            if m_match:
-                                comp = m_match.group(1).strip()
-                                m_name = m_match.group(2).strip()
-
-                        # Pega as Odds direto da tela usando Regex
-                        odd_match = re.search(r"Resultado\s+([\d\.]+)\s+([\d\.]+)", texto_tela, re.IGNORECASE)
-                        if odd_match:
-                            odd_c = odd_match.group(1)
-                            odd_f = odd_match.group(2)
-                            
-                        # Limpa o texto da tela para a IA do Google gerar as dicas depois
-                        tx_limpo = " ".join(texto_tela.split())[:8000]
-
-                        # Empacota os dados estruturados
-                        jogos_extraidos.append({
-                            "fixtureId": fixture_id,
-                            "mandante": m_name,
-                            "visitante": v_name,
-                            "competicao": comp,
-                            "dataJogo": date_str,
-                            "hora": time_str,
-                            "status": status,
-                            "gC": gC,
-                            "gF": gF,
-                            "oddC": odd_c,
-                            "oddF": odd_f,
-                            "logoC": escudos[0] if len(escudos) > 0 else "",
-                            "logoF": escudos[1] if len(escudos) > 1 else "",
-                            "texto": tx_limpo
-                        })
-                        print(f"  ✅ SUCESSO: {m_name} x {v_name} | {gC}x{gF}")
+                        jogos_extraidos.append(dados)
+                        print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} | {dados['gC']}x{dados['gF']} | Odds: {dados['oddC']} / {dados['oddF']}")
                         
                     except Exception as e:
-                        print(f"  ❌ Falha no jogo: {e}")
+                        print(f"  ❌ Timeout ou falha no jogo: {link}")
 
             except Exception as e:
-                print(f"⚠️ Erro ao carregar página da lista {dia}: {e}")
+                print(f"⚠️ Erro ao carregar a lista de {dia}.")
 
         browser.close()
 
     if jogos_extraidos:
-        print(f"🚀 Enviando payload mastigado de {len(jogos_extraidos)} jogos para o Google Apps Script...")
+        print(f"\\n🚀 Enviando payload de {len(jogos_extraidos)} jogos para o Google Sheets...")
         try:
             resp = requests.post(WEBHOOK_URL, json={"jogos": jogos_extraidos})
             print(f"Resposta do Servidor: {resp.text}")
         except Exception as e:
-            print(f"❌ Erro de conexão com a planilha: {e}")
+            print(f"❌ Erro de conexão HTTP: {e}")
     else:
-        print("🤷 Nenhum jogo processado.")
+        print("\\n🤷 Nenhum jogo processado com sucesso.")
 
 if __name__ == "__main__":
     run_scraper()
