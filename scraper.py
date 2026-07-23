@@ -4,16 +4,19 @@ import requests
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-# ⚠️ ATENÇÃO: Cole a URL final do Apps Script que termina em /exec
-WEBHOOK_URL = "COLE_AQUI_A_SUA_URL_EXEC"
-TOKEN = os.environ.get("https://script.google.com/macros/s/AKfycbw78kLQS9OqZh5ixJGQ85zjDlAN9Tb6VyB-35Sm9HJPJowFFJw4_63fUyiOWTgPlf10Ig/exec")
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbztl_Vllk89gi8n84Kbi_IEDqOIvF5pFKpGW-xqwFQlJIKGmYVBUVimNb1zgFC7YOavfA/exec"
+
+# BLINDAGEM DO TOKEN
+TOKEN = os.environ.get("SITE_TOKEN", "").strip()
+if not TOKEN or TOKEN == "None" or TOKEN == "null":
+    TOKEN = "8f88b4c964"
+
 DIAS_PARA_RASPAR = ["ontem", "hoje", "amanha"]
 
 EXTRACTOR_JS = """
 () => {
     let m = "Mandante", v = "Visitante", comp = "Geral", h = "19:00", st = "NS", gc = "-", gf = "-", oc = "", of = "", lc = "", lf = "";
     
-    // Raiz
     let hImg = document.querySelector('.card-match-teams-block.home img');
     if (hImg) { lc = hImg.src || ""; if (hImg.alt) m = hImg.alt.trim(); }
     let aImg = document.querySelector('.card-match-teams-block.away img');
@@ -38,31 +41,12 @@ EXTRACTOR_JS = """
             } else { st = "FT"; }
         }
     }
-
-    // Função de extração de tabelas (Desempenho/Gols)
-    function extractRows(selector) {
-        let data = [];
-        let rows = document.querySelectorAll(`${selector} .row`); // Altere o seletor .row se a classe real for diferente
-        if(rows.length === 0) {
-           // Fallback genérico para div > div caso não haja tabela
-           rows = document.querySelectorAll(`${selector} > div`);
-        }
-        rows.forEach(r => {
-            let cols = Array.from(r.children).map(c => c.innerText.trim()).filter(t => t.length > 0);
-            if (cols.length >= 2) data.push(cols);
-        });
-        return data;
-    }
-
-    return { 
-        mandante: m, visitante: v, competicao: comp, hora: h, status: st, gC: gc, gF: gf, 
-        oddC: oc, oddF: of, logoC: lc, logoF: lf 
-    };
+    return { mandante: m, visitante: v, competicao: comp, hora: h, status: st, gC: gc, gF: gf, oddC: oc, oddF: of, logoC: lc, logoF: lf };
 }
 """
 
 def run_scraper():
-    print(f"🤖 Motor Python Estruturado Ligado | Usando Token: {TOKEN}")
+    print(f"🤖 Motor Python Ligado | Usando Token: {TOKEN}")
     jogos_extraidos = []
     links_visitados = set()
     hoje = datetime.now()
@@ -74,10 +58,7 @@ def run_scraper():
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            viewport={"width": 1920, "height": 1080}
-        )
+        context = browser.new_context(viewport={"width": 1920, "height": 1080})
         page = context.new_page()
 
         for dia in DIAS_PARA_RASPAR:
@@ -110,42 +91,24 @@ def run_scraper():
                         if dados["mandante"] == "Mandante" or dados["mandante"] == "": continue
 
                         eventos_json = {}
-
-                        # Capturando Geral
                         try: eventos_json["geral_txt"] = page.evaluate("() => document.querySelector('.tab-content.active')?.innerText || ''")
                         except: pass
 
-                        # Otimização de tempo
                         if not (dia == "ontem" and dados["status"] == "FT"):
-                            # Desempenho
-                            try:
-                                page.locator("text='Desempenho'").first.click(timeout=3000)
-                                page.wait_for_timeout(1500)
-                                eventos_json["desempenho_txt"] = page.evaluate("() => document.querySelector('.tab-content.active')?.innerText || ''")
-                            except: pass
-                            
-                            # Gols
-                            try:
-                                page.locator("text='Gols'").first.click(timeout=3000)
-                                page.wait_for_timeout(1500)
-                                eventos_json["gols_txt"] = page.evaluate("() => document.querySelector('.tab-content.active')?.innerText || ''")
-                            except: pass
-
-                            # Odds
-                            try:
-                                page.locator("text='Odds'").first.click(timeout=3000)
-                                page.wait_for_timeout(1500)
-                                eventos_json["odds_txt"] = page.evaluate("() => document.querySelector('.tab-content.active')?.innerText || ''")
-                            except: pass
+                            for aba in ["Desempenho", "Gols", "Odds"]:
+                                try:
+                                    page.locator(f"text='{aba}'").first.click(timeout=3000)
+                                    page.wait_for_timeout(1500)
+                                    eventos_json[f"{aba.lower()}_txt"] = page.evaluate("() => document.querySelector('.tab-content.active')?.innerText || ''")
+                                except: pass
 
                         dados["eventosJSON"] = json.dumps(eventos_json)
                         dados["fixtureId"] = link.split("/game/")[1].split("?")[0]
                         dados["dataJogo"] = data_oficial
                         jogos_extraidos.append(dados)
                         print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} ({dados['status']})")
-                        
-                    except Exception as e: pass
-            except Exception as e: pass
+                    except: pass
+            except: pass
 
         browser.close()
 
