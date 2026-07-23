@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright
 # CONFIGURAÇÕES DA INTEGRAÇÃO
 # ==========================================
 # ⚠️ ATENÇÃO: Cole a URL final do Apps Script que termina em /exec
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwjh8kM3lfDxZyruphIz-3V9yU9kRRd39jMyN1NzP0_a1iZuDENKct5ScasBFT6qTHOqA/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyqpbiSNKRhbJ5qdreOU_eV6qjOAh4-boVFPW6XNIMrS7Zejyql13s2RguE_OmLmexgRw/exec"
 
 TOKEN = "8f88b4c964"
 DIAS_PARA_RASPAR = ["ontem", "hoje", "amanha"]
@@ -53,7 +53,7 @@ EXTRACTOR_JS = """
 """
 
 def run_scraper():
-    print("🤖 Iniciando Motor Python Playwright (Modo Sniper com Data Exata)...")
+    print("🤖 Iniciando Motor Python Playwright (Modo Sniper de Alta Tolerância)...")
     jogos_extraidos = []
     links_visitados = set()
     
@@ -75,8 +75,9 @@ def run_scraper():
             print(f"\n📍 Lendo lista: {dia.upper()} ({data_oficial})")
             
             try:
-                page.goto(url_lista, wait_until="networkidle", timeout=20000)
-                page.wait_for_timeout(2000)
+                # Mudamos para domcontentloaded para não travar na espera da rede
+                page.goto(url_lista, wait_until="domcontentloaded", timeout=30000)
+                page.wait_for_timeout(3000)
                 
                 hrefs = page.eval_on_selector_all("a", "elements => elements.map(e => e.href)")
                 game_links = [href for href in hrefs if "/game/" in href]
@@ -88,8 +89,10 @@ def run_scraper():
                     
                     try:
                         print(f"  ⏳ Lendo: {link}")
-                        page.goto(link, wait_until="networkidle", timeout=15000)
-                        page.wait_for_selector('.card-match', timeout=5000)
+                        # Maior tolerância de tempo e menos exigência de carregamento de rede
+                        page.goto(link, wait_until="domcontentloaded", timeout=30000)
+                        # Dá 15 segundos para a caixa principal do jogo aparecer
+                        page.wait_for_selector('.card-match', timeout=15000)
                         
                         dados = page.evaluate(EXTRACTOR_JS)
                         
