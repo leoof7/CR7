@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright
 # CONFIGURAÇÕES DA INTEGRAÇÃO
 # ==========================================
 # ⚠️ ATENÇÃO: Cole a URL final do Apps Script que termina em /exec
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbw6Zu27L5c9wzVFz-pi2EkgAvZmd5JOexqMIfDWFK_hQTDxwIXjspcS7zv7YxfT8jNcdw/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyqpbiSNKRhbJ5qdreOU_eV6qjOAh4-boVFPW6XNIMrS7Zejyql13s2RguE_OmLmexgRw/exec"
 
 TOKEN = "8f88b4c964"
 DIAS_PARA_RASPAR = ["ontem", "hoje", "amanha"]
