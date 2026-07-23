@@ -4,9 +4,8 @@ import requests
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxCd8KI_deoR_Y7l9lAryJJNk9TqEAJiWxE7fxkhIY63DCIfkykxqQUbGZqAhgxK4IBhQ/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxpEwTWW9eoTW_n5whzURFQVhsPZ2I871UyhOtRo-lJx__AZKdX7UU1mzxQuAkJUUs9jw/exec"
 
-# BLINDAGEM DO TOKEN
 TOKEN = os.environ.get("SITE_TOKEN", "").strip()
 if not TOKEN or TOKEN == "None" or TOKEN == "null":
     TOKEN = "8f88b4c964"
@@ -25,20 +24,35 @@ EXTRACTOR_JS = """
     if (hOdd) oc = hOdd.innerText.trim();
     let aOdd = document.querySelector('.card-match-teams-block.away .card-match-odds-item');
     if (aOdd) of = aOdd.innerText.trim();
-    let header = document.querySelector('.card-match-header');
-    if (header) comp = header.innerText.split('\\n')[0].trim() || "Geral";
     
+    // CORREÇÃO 1: Pegar a Liga correta ignorando a palavra "Partidas"
+    let header = document.querySelector('.card-match-header');
+    if (header) {
+        let lines = header.innerText.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length > 1) { comp = lines[lines.length - 1]; } 
+        else { comp = lines[0]; }
+        if (comp.toLowerCase().includes('partidas') && lines.length > 1) comp = lines[1];
+    }
+    
+    // CORREÇÃO 2: Identificador de Placar e Status
     let center = document.querySelector('.card-match-center');
     if (center) {
         let timeText = center.innerText;
         let tMatch = timeText.match(/\\d{2}:\\d{2}/);
         if (tMatch) h = tMatch[0];
-        let scoreMatch = timeText.match(/(\\d+)\\s*-\\s*(\\d+)/);
+        
+        let scoreMatch = timeText.match(/(\\d+)\\s*[-xX]\\s*(\\d+)/);
         if (scoreMatch) { 
             gc = scoreMatch[1]; gf = scoreMatch[2]; 
-            if (timeText.includes("'") || timeText.toLowerCase().includes("vivo")) {
-                st = "LIVE"; let minMatch = timeText.match(/\\d+'/); if(minMatch) h = minMatch[0];
-            } else { st = "FT"; }
+            if (timeText.includes("'") || timeText.toLowerCase().includes("vivo") || timeText.includes("+")) {
+                st = "LIVE"; 
+                let minMatch = timeText.match(/\\d+'/); 
+                if(minMatch) h = minMatch[0];
+            } else { 
+                st = "FT"; 
+            }
+        } else if (timeText.toLowerCase().includes("encerrado") || timeText.toLowerCase().includes("ft")) {
+            st = "FT";
         }
     }
     return { mandante: m, visitante: v, competicao: comp, hora: h, status: st, gC: gc, gF: gf, oddC: oc, oddF: of, logoC: lc, logoF: lf };
@@ -85,7 +99,7 @@ def run_scraper():
                     
                     try:
                         page.goto(link, wait_until="domcontentloaded", timeout=30000)
-                        page.wait_for_timeout(4000)
+                        page.wait_for_timeout(3000)
                         
                         dados = page.evaluate(EXTRACTOR_JS)
                         if dados["mandante"] == "Mandante" or dados["mandante"] == "": continue
@@ -97,8 +111,8 @@ def run_scraper():
                         if not (dia == "ontem" and dados["status"] == "FT"):
                             for aba in ["Desempenho", "Gols", "Odds"]:
                                 try:
-                                    page.locator(f"text='{aba}'").first.click(timeout=3000)
-                                    page.wait_for_timeout(1500)
+                                    page.locator(f"text='{aba}'").first.click(timeout=2000)
+                                    page.wait_for_timeout(1000)
                                     eventos_json[f"{aba.lower()}_txt"] = page.evaluate("() => document.querySelector('.tab-content.active')?.innerText || ''")
                                 except: pass
 
@@ -106,7 +120,7 @@ def run_scraper():
                         dados["fixtureId"] = link.split("/game/")[1].split("?")[0]
                         dados["dataJogo"] = data_oficial
                         jogos_extraidos.append(dados)
-                        print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} ({dados['status']})")
+                        print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} ({dados['status']}) - Liga: {dados['competicao']}")
                     except: pass
             except: pass
 
