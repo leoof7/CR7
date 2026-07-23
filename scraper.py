@@ -17,58 +17,48 @@ EXTRACTOR_JS = """
     let m = "Mandante", v = "Visitante", comp = "Geral", h = "19:00", st = "NS", gc = "-", gf = "-", oc = "", of = "", lc = "", lf = "";
 
     try {
-        // 1. Tenta pegar JSON raiz do NextJS (O Mais Preciso)
-        let nextData = document.getElementById('__NEXT_DATA__');
-        if (nextData) {
-            let d = JSON.parse(nextData.innerText);
-            let match = d?.props?.pageProps?.match;
-            if (match) {
-                if (match.homeTeam?.name) m = match.homeTeam.name;
-                if (match.awayTeam?.name) v = match.awayTeam.name;
-                if (match.league?.name) comp = match.league.name;
-                if (match.homeScore !== null && match.homeScore !== undefined) gc = match.homeScore;
-                if (match.awayScore !== null && match.awayScore !== undefined) gf = match.awayScore;
-                if (match.status === 'finished') st = "FT";
-                else if (match.status === 'in_progress') st = "LIVE";
-            }
-        }
-
-        // 2. Tenta pegar pelo Titulo da Página se o JSON falhou
-        if (m === "Mandante") {
-            let title = document.title;
-            if (title && title.includes(' vs ')) {
-                let parts = title.split(' - ')[0].split(' vs ');
-                if (parts.length === 2) { m = parts[0].trim(); v = parts[1].trim(); }
-            }
-        }
-
-        // 3. Tenta pelas Classes Visuais (Para as Odds e Logos)
+        // METODO 1: Leitura Visual Direta (O Mais Seguro)
         let hImg = document.querySelector('.card-match-teams-block.home img');
-        if (hImg) lc = hImg.src;
+        if (hImg) {
+            lc = hImg.src || "";
+            if (hImg.alt) m = hImg.alt.trim(); // <-- A LINHA QUE EU HAVIA ESQUECIDO
+        }
+        
         let aImg = document.querySelector('.card-match-teams-block.away img');
-        if (aImg) lf = aImg.src;
+        if (aImg) {
+            lf = aImg.src || "";
+            if (aImg.alt) v = aImg.alt.trim(); // <-- A LINHA QUE EU HAVIA ESQUECIDO
+        }
 
         let hOdd = document.querySelector('.card-match-teams-block.home .card-match-odds-item');
         if (hOdd) oc = hOdd.innerText.trim();
+        
         let aOdd = document.querySelector('.card-match-teams-block.away .card-match-odds-item');
         if (aOdd) of = aOdd.innerText.trim();
 
         let header = document.querySelector('.card-match-header');
-        if (header && comp === "Geral") {
-            comp = header.innerText.split('\\n')[0];
-        }
+        if (header) comp = header.innerText.split('\\n')[0].trim() || "Geral";
         
         let center = document.querySelector('.card-match-center');
         if (center) {
             let tMatch = center.innerText.match(/\\d{2}:\\d{2}/);
             if (tMatch) h = tMatch[0];
+            
+            let scoreMatch = center.innerText.match(/(\\d+)\\s*-\\s*(\\d+)/);
+            if (scoreMatch) { gc = scoreMatch[1]; gf = scoreMatch[2]; st = "FT"; }
         }
-        
-        // 4. Último Recurso: Busca bruta no texto para as Odds
-        if(!oc || !of) {
-           let txt = document.body.innerText;
-           let oddMatch = txt.match(/Resultado[\\s\\S]*?([\\d\\.]+)[\\s\\S]*?([\\d\\.]+)/i);
-           if(oddMatch) { oc = oddMatch[1]; of = oddMatch[2]; }
+
+        // METODO 2: Fallback via JSON caso a imagem não tenha texto 'alt'
+        if (m === "Mandante" || v === "Visitante") {
+            let nextData = document.getElementById('__NEXT_DATA__');
+            if (nextData) {
+                let d = JSON.parse(nextData.innerText);
+                let match = d?.props?.pageProps?.match;
+                if (match) {
+                    if (match.homeTeam?.name) m = match.homeTeam.name;
+                    if (match.awayTeam?.name) v = match.awayTeam.name;
+                }
+            }
         }
 
     } catch(e) { console.log(e); }
@@ -78,7 +68,7 @@ EXTRACTOR_JS = """
 """
 
 def run_scraper():
-    print("🤖 Iniciando Motor Python Playwright (Extrator Blindado e Triplo)...")
+    print("🤖 Iniciando Motor Python Playwright (Extrator Corrigido)...")
     jogos_extraidos = []
     links_visitados = set()
     
@@ -91,7 +81,6 @@ def run_scraper():
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        # Camuflagem pesada para evitar bloqueios de segurança
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             viewport={"width": 1920, "height": 1080}
@@ -117,16 +106,15 @@ def run_scraper():
                     
                     try:
                         print(f"  ⏳ Acessando: {link}")
-                        page.goto(link, wait_until="domcontentloaded", timeout=20000)
+                        page.goto(link, wait_until="domcontentloaded", timeout=30000)
                         
-                        # A MUDANÇA PRINCIPAL: Chega de esperar classes CSS específicas. 
-                        # Entra, espera 5 segundos pro Javascript do Theo carregar a tela e ataca!
+                        # Espera garantida para a página renderizar
                         page.wait_for_timeout(5000)
                         
                         dados = page.evaluate(EXTRACTOR_JS)
                         
-                        if dados["mandante"] == "Mandante":
-                            print(f"  ⚠️ Nomes Vazios (Bloqueio ou Layout diferente): {link}")
+                        if dados["mandante"] == "Mandante" or dados["mandante"] == "":
+                            print(f"  ⚠️ Falha de extração (Nomes Vazios): {link}")
                             continue
 
                         dados["fixtureId"] = link.split("/game/")[1].split("?")[0]
@@ -136,7 +124,7 @@ def run_scraper():
                         print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} | Odds: {dados['oddC']} / {dados['oddF']}")
                         
                     except Exception as e:
-                        print(f"  ❌ ERRO AO LER: {str(e)[:100]}")
+                        print(f"  ❌ ERRO AO LER O JOGO: {link}")
 
             except Exception as e:
                 print(f"⚠️ Erro ao carregar a lista de {dia}.")
@@ -144,7 +132,7 @@ def run_scraper():
         browser.close()
 
     if jogos_extraidos:
-        print(f"\n🚀 Enviando {len(jogos_extraidos)} jogos para a Planilha...")
+        print(f"\n🚀 Enviando {len(jogos_extraidos)} jogos para o Google Sheets...")
         try:
             resp = requests.post(WEBHOOK_URL, json={"jogos": jogos_extraidos})
             print(f"Resposta da Planilha: {resp.text}")
