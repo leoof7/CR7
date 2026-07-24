@@ -4,8 +4,7 @@ import requests
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-# ATENÇÃO: NÃO ESQUEÇA DE COLOCAR A URL DO SEU APPS SCRIPT AQUI!
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwkvlniMH-POd8RtPCM1S7agUw0Xh_pqkICbVa9UO957jOz1vS2npkkzWaR7hqr1mknMw/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwgAW0CmoZNml0ZYXFLguDaNYsDcT7sm0uhrKFIwg4X9D8K7m64S5Tqdo0HcZ5yeTTYtA/exec"
 
 TOKEN = os.environ.get("SITE_TOKEN", "").strip()
 if not TOKEN or TOKEN == "None" or TOKEN == "null":
@@ -20,7 +19,7 @@ BLOCKLIST = [
     "poland - 1. liga", "polônia - 1", "republic of ireland", "irlanda", "romania", "romênia", "slovakia", "eslováquia", 
     "slovenia", "eslovênia", "prvaliga", "south korea", "coreia do sul", "k league 2", "sweden", "suécia", "allsvenskan", 
     "superettan", "tchéquia", "czech", "ukraine", "ucrânia", "pershaya", "usl championship", "china", "russian", 
-    "ascenso mx", "esiliiga", "veikkausliiga", "ykkosliiga", "1. liga", "cup", "copa da", "challenge", "super cup"
+    "ascenso mx", "esiliiga", "veikkausliiga", "ykkosliiga", "1. liga", "cup", "copa da", "challenge", "super cup", "friendly"
 ]
 
 EXTRACTOR_JS = """
@@ -107,26 +106,33 @@ def run_scraper():
             
             try:
                 page.goto(url_lista, wait_until="domcontentloaded", timeout=40000)
-                page.wait_for_timeout(3000)
+                page.wait_for_timeout(4000)
                 
-                # RADAR DE REDIRECIONAMENTO: Se o site te jogou pro login, o token expirou!
                 if "login" in page.url or "auth" in page.url:
-                    print(f"⚠️ ERRO FATAL: Token Expirado! O site redirecionou para {page.url}")
+                    print(f"⚠️ ERRO FATAL: Token Expirado! Redirecionado para {page.url}")
                     try:
-                        requests.post(WEBHOOK_URL, json={"error": f"TOKEN EXPIRADO OU INVÁLIDO ({TOKEN}). Cole um novo token no Cockpit."})
+                        requests.post(WEBHOOK_URL, json={"error": f"TOKEN EXPIRADO OU INVÁLIDO ({TOKEN}). Cole um novo no Cockpit."})
                     except: pass
                     browser.close()
-                    return  # Interrompe o robô imediatamente
+                    return
                 
-                # ROLAGEM INTELIGENTE: Desce até o fim para carregar todos os jogos da liga
+                # Scroll inteligente para abrir tudo
+                for _ in range(4):
+                    page.evaluate("window.scrollBy(0, 1000)")
+                    page.wait_for_timeout(1000)
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 page.wait_for_timeout(2000)
                 
-                botoes_expandir = page.locator('.competition-card.collapsed .competition-header')
-                for i in range(botoes_expandir.count()):
-                    try: botoes_expandir.nth(i).click(timeout=1000)
-                    except: pass
-                page.wait_for_timeout(3000)
+                # Clique agressivo em todas as ligas recolhidas
+                while True:
+                    botoes_fechados = page.locator('.competition-card.collapsed .competition-header')
+                    if botoes_fechados.count() == 0:
+                        break
+                    try:
+                        botoes_fechados.first.click(timeout=2000)
+                        page.wait_for_timeout(800)
+                    except:
+                        break
                 
                 hrefs = page.eval_on_selector_all("a", "elements => elements.map(e => e.href)")
                 game_links = list(set([href for href in hrefs if "/game/" in href]))
