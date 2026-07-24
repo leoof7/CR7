@@ -4,7 +4,8 @@ import requests
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwhn7DOpcp9p5ntNbcT95gKhvOHqx0gjgU5xGGXvU9ac-Hn9CT4531OhGvCGSxHfzx5jw/exec"
+# ATENÇÃO: NÃO ESQUEÇA DE COLOCAR A URL DO SEU APPS SCRIPT AQUI!
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwkvlniMH-POd8RtPCM1S7agUw0Xh_pqkICbVa9UO957jOz1vS2npkkzWaR7hqr1mknMw/exec"
 
 TOKEN = os.environ.get("SITE_TOKEN", "").strip()
 if not TOKEN or TOKEN == "None" or TOKEN == "null":
@@ -69,7 +70,6 @@ EXTRACTOR_JS = """
         }
     }
     
-    // CAÇADOR DE TENDÊNCIAS: Lendo a coluna direita (Principais Mercados, H2H, Trends)
     let txtPrincipais = "";
     let rightCol = document.querySelector('.right-column');
     if (rightCol) {
@@ -107,9 +107,18 @@ def run_scraper():
             
             try:
                 page.goto(url_lista, wait_until="domcontentloaded", timeout=40000)
-                page.wait_for_timeout(4000) # SCROLL E ESPERA: Para garantir que as ligas "desçam" e os links apareçam
+                page.wait_for_timeout(3000)
                 
-                # Rola até o final da página para garantir o carregamento do sanfona
+                # RADAR DE REDIRECIONAMENTO: Se o site te jogou pro login, o token expirou!
+                if "login" in page.url or "auth" in page.url:
+                    print(f"⚠️ ERRO FATAL: Token Expirado! O site redirecionou para {page.url}")
+                    try:
+                        requests.post(WEBHOOK_URL, json={"error": f"TOKEN EXPIRADO OU INVÁLIDO ({TOKEN}). Cole um novo token no Cockpit."})
+                    except: pass
+                    browser.close()
+                    return  # Interrompe o robô imediatamente
+                
+                # ROLAGEM INTELIGENTE: Desce até o fim para carregar todos os jogos da liga
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 page.wait_for_timeout(2000)
                 
@@ -128,14 +137,13 @@ def run_scraper():
                     
                     try:
                         page.goto(link, wait_until="domcontentloaded", timeout=30000)
-                        page.wait_for_timeout(3000)
+                        page.wait_for_timeout(2500)
                         
                         dados = page.evaluate(EXTRACTOR_JS)
                         if dados["mandante"] == "Mandante" or dados["mandante"] == "": continue
                         
                         comp_lower = dados["competicao"].lower()
                         if any(lixo in comp_lower for lixo in BLOCKLIST):
-                            print(f"🚫 Ignorado pela Blocklist: {dados['competicao']}")
                             continue
 
                         if dados.get("dataJogoExato"):
@@ -147,7 +155,6 @@ def run_scraper():
 
                         eventos_json = {}
                         
-                        # Salva o bloco Principais (H2H e Tendencias) no pacote JSON
                         if dados.get("textPrincipais"):
                             eventos_json["principais_txt"] = dados["textPrincipais"]
 
