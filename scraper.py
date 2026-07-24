@@ -4,7 +4,7 @@ import requests
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwkvlniMH-POd8RtPCM1S7agUw0Xh_pqkICbVa9UO957jOz1vS2npkkzWaR7hqr1mknMw/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwhn7DOpcp9p5ntNbcT95gKhvOHqx0gjgU5xGGXvU9ac-Hn9CT4531OhGvCGSxHfzx5jw/exec"
 
 TOKEN = os.environ.get("SITE_TOKEN", "").strip()
 if not TOKEN or TOKEN == "None" or TOKEN == "null":
@@ -47,7 +47,6 @@ EXTRACTOR_JS = """
     let center = document.querySelector('.card-match-center');
     if (center) {
         let text = center.innerText;
-        
         let dM = text.match(/(\\d{2})\\/(\\d{2})/);
         if (dM) {
             let currentYear = new Date().getFullYear();
@@ -69,7 +68,15 @@ EXTRACTOR_JS = """
             st = "FT";
         }
     }
-    return { mandante: m, visitante: v, competicao: comp, hora: h, status: st, gC: gc, gF: gf, oddC: oc, oddF: of, logoC: lc, logoF: lf, dataJogoExato: dDia };
+    
+    // CAÇADOR DE TENDÊNCIAS: Lendo a coluna direita (Principais Mercados, H2H, Trends)
+    let txtPrincipais = "";
+    let rightCol = document.querySelector('.right-column');
+    if (rightCol) {
+        txtPrincipais = rightCol.innerText;
+    }
+
+    return { mandante: m, visitante: v, competicao: comp, hora: h, status: st, gC: gc, gF: gf, oddC: oc, oddF: of, logoC: lc, logoF: lf, dataJogoExato: dDia, textPrincipais: txtPrincipais };
 }
 """
 
@@ -99,14 +106,18 @@ def run_scraper():
             print(f"\n📍 Lendo lista: {dia.upper()} ({data_oficial})")
             
             try:
-                page.goto(url_lista, wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_timeout(3000)
+                page.goto(url_lista, wait_until="domcontentloaded", timeout=40000)
+                page.wait_for_timeout(4000) # SCROLL E ESPERA: Para garantir que as ligas "desçam" e os links apareçam
+                
+                # Rola até o final da página para garantir o carregamento do sanfona
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_timeout(2000)
                 
                 botoes_expandir = page.locator('.competition-card.collapsed .competition-header')
                 for i in range(botoes_expandir.count()):
                     try: botoes_expandir.nth(i).click(timeout=1000)
                     except: pass
-                page.wait_for_timeout(2000)
+                page.wait_for_timeout(3000)
                 
                 hrefs = page.eval_on_selector_all("a", "elements => elements.map(e => e.href)")
                 game_links = list(set([href for href in hrefs if "/game/" in href]))
@@ -117,7 +128,7 @@ def run_scraper():
                     
                     try:
                         page.goto(link, wait_until="domcontentloaded", timeout=30000)
-                        page.wait_for_timeout(2500)
+                        page.wait_for_timeout(3000)
                         
                         dados = page.evaluate(EXTRACTOR_JS)
                         if dados["mandante"] == "Mandante" or dados["mandante"] == "": continue
@@ -135,6 +146,11 @@ def run_scraper():
                             dados["dataJogo"] = data_oficial
 
                         eventos_json = {}
+                        
+                        # Salva o bloco Principais (H2H e Tendencias) no pacote JSON
+                        if dados.get("textPrincipais"):
+                            eventos_json["principais_txt"] = dados["textPrincipais"]
+
                         try: eventos_json["geral_txt"] = page.evaluate("() => document.querySelector('.tab-content.active')?.innerText || ''")
                         except: pass
 
