@@ -4,13 +4,14 @@ import requests
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxpEwTWW9eoTW_n5whzURFQVhsPZ2I871UyhOtRo-lJx__AZKdX7UU1mzxQuAkJUUs9jw/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby5efx8EHZbM8MvNqjgbs-f93doQLyugLfSEgnTt5SVbUUKy5e_TlJ7MrVEesdbWq4GTw/exec"
 
 TOKEN = os.environ.get("SITE_TOKEN", "").strip()
 if not TOKEN or TOKEN == "None" or TOKEN == "null":
     TOKEN = "8f88b4c964"
 
-DIAS_PARA_RASPAR = ["ontem", "hoje", "amanha"]
+# AGORA RASPA 5 DIAS SEGUIDOS
+DIAS_PARA_RASPAR = ["ontem", "hoje", "amanha", "depois", "depois2"]
 
 EXTRACTOR_JS = """
 () => {
@@ -25,7 +26,6 @@ EXTRACTOR_JS = """
     let aOdd = document.querySelector('.card-match-teams-block.away .card-match-odds-item');
     if (aOdd) of = aOdd.innerText.trim();
     
-    // CORREÇÃO 1: Pegar a Liga correta ignorando a palavra "Partidas"
     let header = document.querySelector('.card-match-header');
     if (header) {
         let lines = header.innerText.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -34,7 +34,6 @@ EXTRACTOR_JS = """
         if (comp.toLowerCase().includes('partidas') && lines.length > 1) comp = lines[1];
     }
     
-    // CORREÇÃO 2: Identificador de Placar e Status
     let center = document.querySelector('.card-match-center');
     if (center) {
         let timeText = center.innerText;
@@ -64,10 +63,14 @@ def run_scraper():
     jogos_extraidos = []
     links_visitados = set()
     hoje = datetime.now()
+    
+    # MAPEAMENTO DOS 5 DIAS
     mapa_datas = {
         "ontem": (hoje - timedelta(days=1)).strftime("%Y-%m-%d"),
         "hoje": hoje.strftime("%Y-%m-%d"),
-        "amanha": (hoje + timedelta(days=1)).strftime("%Y-%m-%d")
+        "amanha": (hoje + timedelta(days=1)).strftime("%Y-%m-%d"),
+        "depois": (hoje + timedelta(days=2)).strftime("%Y-%m-%d"),
+        "depois2": (hoje + timedelta(days=3)).strftime("%Y-%m-%d")
     }
 
     with sync_playwright() as p:
@@ -120,7 +123,7 @@ def run_scraper():
                         dados["fixtureId"] = link.split("/game/")[1].split("?")[0]
                         dados["dataJogo"] = data_oficial
                         jogos_extraidos.append(dados)
-                        print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} ({dados['status']}) - Liga: {dados['competicao']}")
+                        print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} ({dados['status']})")
                     except: pass
             except: pass
 
