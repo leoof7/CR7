@@ -4,19 +4,28 @@ import requests
 from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
-WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby5efx8EHZbM8MvNqjgbs-f93doQLyugLfSEgnTt5SVbUUKy5e_TlJ7MrVEesdbWq4GTw/exec"
+WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwiLqkwunkPgrcfpkq-FbJDKF0OrDNKfv5TC0zTTckobKNfexpJoKqaO8G2BOB9I2U1cw/exec"
 
 TOKEN = os.environ.get("SITE_TOKEN", "").strip()
 if not TOKEN or TOKEN == "None" or TOKEN == "null":
     TOKEN = "8f88b4c964"
 
-# AGORA RASPA 5 DIAS SEGUIDOS
 DIAS_PARA_RASPAR = ["ontem", "hoje", "amanha", "depois", "depois2"]
+
+# LISTA NEGRA: O robô vai pular essas ligas imediatamente
+BLOCKLIST = [
+    "série b do equador", "série b ecuador", "costa rica", "colômbia - primera b", "colombia - primera b", 
+    "peru - segunda", "islândia", "iceland", "bélgica - copa", "bielorrússia", "belarus", "bulgária", "bulgaria", 
+    "canadá", "canada", "dinamarca - segunda", "hungria", "hungary", "nb i", "nb ii", "kazakhstan", "cazaquistão", 
+    "poland - 1. liga", "polônia - 1", "republic of ireland", "irlanda", "romania", "romênia", "slovakia", "eslováquia", 
+    "slovenia", "eslovênia", "prvaliga", "south korea", "coreia do sul", "k league 2", "sweden", "suécia", "allsvenskan", 
+    "superettan", "tchéquia", "czech", "ukraine", "ucrânia", "pershaya", "usl championship", "china", "russian", 
+    "ascenso mx", "esiliiga", "veikkausliiga", "ykkosliiga", "1. liga", "cup", "copa da", "challenge"
+]
 
 EXTRACTOR_JS = """
 () => {
     let m = "Mandante", v = "Visitante", comp = "Geral", h = "19:00", st = "NS", gc = "-", gf = "-", oc = "", of = "", lc = "", lf = "";
-    
     let hImg = document.querySelector('.card-match-teams-block.home img');
     if (hImg) { lc = hImg.src || ""; if (hImg.alt) m = hImg.alt.trim(); }
     let aImg = document.querySelector('.card-match-teams-block.away img');
@@ -47,9 +56,7 @@ EXTRACTOR_JS = """
                 st = "LIVE"; 
                 let minMatch = timeText.match(/\\d+'/); 
                 if(minMatch) h = minMatch[0];
-            } else { 
-                st = "FT"; 
-            }
+            } else { st = "FT"; }
         } else if (timeText.toLowerCase().includes("encerrado") || timeText.toLowerCase().includes("ft")) {
             st = "FT";
         }
@@ -64,7 +71,6 @@ def run_scraper():
     links_visitados = set()
     hoje = datetime.now()
     
-    # MAPEAMENTO DOS 5 DIAS
     mapa_datas = {
         "ontem": (hoje - timedelta(days=1)).strftime("%Y-%m-%d"),
         "hoje": hoje.strftime("%Y-%m-%d"),
@@ -74,8 +80,9 @@ def run_scraper():
     }
 
     with sync_playwright() as p:
+        # Força o Fuso Horário de São Paulo para evitar "Viagens no tempo"
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={"width": 1920, "height": 1080})
+        context = browser.new_context(viewport={"width": 1920, "height": 1080}, timezone_id="America/Sao_Paulo")
         page = context.new_page()
 
         for dia in DIAS_PARA_RASPAR:
@@ -102,10 +109,15 @@ def run_scraper():
                     
                     try:
                         page.goto(link, wait_until="domcontentloaded", timeout=30000)
-                        page.wait_for_timeout(3000)
+                        page.wait_for_timeout(2500)
                         
                         dados = page.evaluate(EXTRACTOR_JS)
                         if dados["mandante"] == "Mandante" or dados["mandante"] == "": continue
+                        
+                        comp_lower = dados["competicao"].lower()
+                        if any(lixo in comp_lower for lixo in BLOCKLIST):
+                            print(f"🚫 Ignorado pela Blocklist: {dados['competicao']}")
+                            continue
 
                         eventos_json = {}
                         try: eventos_json["geral_txt"] = page.evaluate("() => document.querySelector('.tab-content.active')?.innerText || ''")
@@ -123,7 +135,7 @@ def run_scraper():
                         dados["fixtureId"] = link.split("/game/")[1].split("?")[0]
                         dados["dataJogo"] = data_oficial
                         jogos_extraidos.append(dados)
-                        print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} ({dados['status']})")
+                        print(f"  🎯 SUCESSO: {dados['mandante']} x {dados['visitante']} | Liga: {dados['competicao']}")
                     except: pass
             except: pass
 
