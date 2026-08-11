@@ -429,7 +429,19 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                 gc = parseInt(scoreMatch[1], 10);
                 gf = parseInt(scoreMatch[2], 10);
               }
-              return { isFT, isLIVE, isNS, gc, gf };
+
+              // Placar do intervalo (HT) - nunca inventar: só grava se achar um padrão explícito.
+              let htCasa = null, htFora = null;
+              const parenMatch = topAreaText.match(/\d+\s*-\s*\d+\s*\((\d+)\s*-\s*(\d+)\)/);
+              const intervaloMatch = topAreaText.match(/INTERVALO[:\s]*(\d+)\s*-\s*(\d+)/i);
+              const htLabelMatch = topAreaText.match(/\bHT[:\s]*(\d+)\s*-\s*(\d+)/i);
+              const htMatch = parenMatch || intervaloMatch || htLabelMatch;
+              if (htMatch) {
+                htCasa = parseInt(htMatch[1], 10);
+                htFora = parseInt(htMatch[2], 10);
+              }
+
+              return { isFT, isLIVE, isNS, gc, gf, htCasa, htFora };
             });
 
             if (headerInfo.isFT) item.status = "FT";
@@ -441,6 +453,9 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
 
             if (headerInfo.gf !== null && !isNaN(headerInfo.gf)) item.golsFora = headerInfo.gf;
             else if (item.status === "NS") item.golsFora = 0;
+
+            item.golsHTCasa = (headerInfo.htCasa !== null && !isNaN(headerInfo.htCasa)) ? headerInfo.htCasa : null;
+            item.golsHTFora = (headerInfo.htFora !== null && !isNaN(headerInfo.htFora)) ? headerInfo.htFora : null;
 
             // Extração de Destaques (Confronto Direto, Tendências, Mercados) com Filtro Global contra Cantos e Cartões
             const jsonGeral = await page.evaluate((teams) => {
@@ -582,9 +597,13 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                   });
             };
 
-            const extrairTabelaGenerica = async (nomeAba: string) => {
-              await clicarAba(nomeAba);
-              return await page.evaluate(() => {
+            // Extrai as linhas de uma aba (Desempenho/Gols). Quando a aba tem o toggle
+            // "Primeiro"/"Segundo", tenta clicar em "Segundo" e capturar de novo, marcando
+            // como 'periodo: 2T' SÓ as linhas cujo valor realmente mudou em relação ao
+            // "Primeiro" - evita duplicar estatísticas globais (ex.: Aproveitamento da
+            // temporada) que usam a mesma classe CSS mas não são por tempo de jogo.
+            const extrairLinhasDaTela = async (periodoTag?: string) => {
+              return await page.evaluate((periodo) => {
                   const resultados = [];
                   const seen = new Set();
 
@@ -593,17 +612,19 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                       if (!label) return;
 
                       const vals = Array.from(row.querySelectorAll('.pgcv')).map(el => (el.textContent || '').trim().replace(/\s+/g, ' '));
-                      
+
                       if (vals.length >= 2) {
                           const key = label + vals[0] + vals[1];
                           if (!seen.has(key)) {
                               seen.add(key);
-                              resultados.push({
+                              const linha: any = {
                                   metrica: label,
                                   casa: vals[0],
                                   fora: vals[1],
                                   media: vals[2] || ""
-                              });
+                              };
+                              if (periodo) linha.periodo = periodo;
+                              resultados.push(linha);
                           }
                       }
                   });
@@ -617,7 +638,7 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                       const percM = (row.querySelector('.pg-gm-perc-mercado, [class*="perc-mercado"]')?.textContent || '').trim();
                       const percS = (row.querySelector('.pg-gm-perc-sofrido, [class*="perc-sofrido"]')?.textContent || '').trim();
 
-                      const key = tempo + marcado + sofrido;
+                      const key = 'relogio' + tempo + marcado + sofrido;
                       if (!seen.has(key)) {
                           seen.add(key);
                           resultados.push({
@@ -632,7 +653,44 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                   });
 
                   return resultados;
-              });
+              }, periodoTag || null);
+            };
+
+            const clicarToggleTempo = async (rotulo: 'PRIMEIRO' | 'SEGUNDO') => {
+              return await page.evaluate((rot) => {
+                  const alvo = Array.from(document.querySelectorAll('button, [role="tab"], span, div')).find(el => {
+                      const txt = (el.textContent || '').trim().toUpperCase();
+                      return txt === rot && el.closest('button, [role="tab"]');
+                  });
+                  const clicavel: any = alvo ? (alvo.closest('button, [role="tab"]') || alvo) : null;
+                  if (clicavel) { clicavel.click(); return true; }
+                  return false;
+              }, rotulo);
+            };
+
+            const extrairTabelaGenerica = async (nomeAba: string) => {
+              await clicarAba(nomeAba);
+              const linhas1T = await extrairLinhasDaTela();
+
+              let linhas2T = [];
+              try {
+                const achouSegundo = await clicarToggleTempo('SEGUNDO');
+                if (achouSegundo) {
+                  await page.waitForTimeout(1200);
+                  const brutas2T = await extrairLinhasDaTela('2T');
+                  const mapa1T = new Map(linhas1T.filter((l: any) => l.tipo !== 'relogio').map((l: any) => [l.metrica, l]));
+                  linhas2T = brutas2T.filter((l: any) => {
+                    if (l.tipo === 'relogio') return false; // relógio de gols já cobre o jogo inteiro
+                    const par: any = mapa1T.get(l.metrica);
+                    return !par || par.casa !== l.casa || par.fora !== l.fora;
+                  });
+
+                  await clicarToggleTempo('PRIMEIRO'); // deixa o toggle limpo pra próxima leitura
+                  await page.waitForTimeout(500);
+                }
+              } catch (e) {}
+
+              return [...linhas1T, ...linhas2T];
             };
 
             let jsonH2H_casa = [];
@@ -679,6 +737,8 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
               dataJogo: item.dataJogo,
               golsCasa: item.golsCasa,
               golsFora: item.golsFora,
+              golsHTCasa: item.golsHTCasa ?? null,
+              golsHTFora: item.golsHTFora ?? null,
               isDestaque: item.isDestaque || false,
               eventosJSON: JSON.stringify({
                 principais_json: jsonGeral,
