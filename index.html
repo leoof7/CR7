@@ -930,8 +930,23 @@ window.toggleUiTab = function(btn, groupClass, targetId) {
 };
 
 // TABELA DE H2H (Sem coluna e sem gráficos de pressão, com ícones G/R)
+// H2H "data" vem como DD/MM/AA(AA) do site - só interessa o que aconteceu nos
+// últimos 3 meses, não a temporada inteira.
+function dentroDosUltimos3Meses(dataStr) {
+  if (!dataStr) return true;
+  const m = String(dataStr).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (!m) return true;
+  let [, d, mo, y] = m.map(Number);
+  if (y < 100) y += 2000;
+  const data = new Date(y, mo - 1, d);
+  if (isNaN(data.getTime())) return true;
+  const limite = new Date();
+  limite.setMonth(limite.getMonth() - 3);
+  return data >= limite;
+}
+
 function renderH2HList(h2hData, teamFilter) {
-    let filtered = h2hData || [];
+    let filtered = (h2hData || []).filter(h => dentroDosUltimos3Meses(h.data));
     if (teamFilter) {
         filtered = filtered.filter(h => h.mandante.includes(teamFilter) || h.visitante.includes(teamFilter));
     }
@@ -1614,7 +1629,7 @@ function renderizarConteudoModal() {
 
   const navAbas = `
   <div class="flex gap-2 overflow-x-auto no-scrollbar pb-4 mb-2">
-    <button onclick="trocarSubTabModal('geral')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'geral' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">📊 Resumo</button>
+    <button onclick="trocarSubTabModal('geral')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'geral' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">📊 Top Stats</button>
     <button onclick="trocarSubTabModal('h2h')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'h2h' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⚔️ H2H</button>
     <button onclick="trocarSubTabModal('desempenho')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'desempenho' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⏱️ Desempenho</button>
     <button onclick="trocarSubTabModal('gols')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'gols' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⚽ Gols</button>
@@ -1624,26 +1639,21 @@ function renderizarConteudoModal() {
   let corpo = '';
   
   if (modalSubTabAtual === 'geral') {
-    corpo = `
-    <div class="grid grid-cols-2 gap-3 mt-2">
-        <button onclick="trocarSubTabModal('h2h')" class="bg-[#1c1c1e] p-6 rounded-3xl flex flex-col items-center justify-center border border-blue-500/20 shadow-lg hover:bg-[#2c2c2e] active:scale-95 transition-all">
-            <span class="text-4xl mb-3 drop-shadow-md">⚔️</span>
-            <span class="text-[11px] font-black uppercase text-blue-400 tracking-widest text-center">Confrontos<br>Diretos</span>
-        </button>
-        <button onclick="trocarSubTabModal('desempenho')" class="bg-[#1c1c1e] p-6 rounded-3xl flex flex-col items-center justify-center border border-purple-500/20 shadow-lg hover:bg-[#2c2c2e] active:scale-95 transition-all">
-            <span class="text-4xl mb-3 drop-shadow-md">⏱️</span>
-            <span class="text-[11px] font-black uppercase text-purple-400 tracking-widest text-center">Forma &<br>Desempenho</span>
-        </button>
-        <button onclick="trocarSubTabModal('gols')" class="bg-[#1c1c1e] p-6 rounded-3xl flex flex-col items-center justify-center border border-green-500/20 shadow-lg hover:bg-[#2c2c2e] active:scale-95 transition-all">
-            <span class="text-4xl mb-3 drop-shadow-md">⚽</span>
-            <span class="text-[11px] font-black uppercase text-green-400 tracking-widest text-center">Radares<br>de Gols</span>
-        </button>
-        <button onclick="trocarSubTabModal('destaques')" class="bg-[#1c1c1e] p-6 rounded-3xl flex flex-col items-center justify-center border border-amber-500/20 shadow-lg hover:bg-[#2c2c2e] active:scale-95 transition-all">
-            <span class="text-4xl mb-3 drop-shadow-md">⭐</span>
-            <span class="text-[11px] font-black uppercase text-amber-500 tracking-widest text-center">Destaques<br>Inteligência</span>
-        </button>
-    </div>`;
-  } 
+    // Reaproveita o mesmo motor de oportunidades das Tips - as estatísticas
+    // "top" daqui são, por definição, as mesmas que o app já considera relevantes.
+    const jogoAdaptado = {
+      eventosJSON: JSON.stringify(data.json || {}),
+      mandante: data.m, visitante: data.v,
+      oddCasa: data.odds?.c, oddFora: data.odds?.f,
+      isDestaque: false
+    };
+    const jFake = { logoCasa: data.lc, logoFora: data.lf, golsCasa: data.gc, golsFora: data.gf, status: data.status, hora: data.hora, dataJogo: data.dataJogo };
+    const topOps = extrairOportunidadesJogo(jogoAdaptado).slice(0, 8);
+
+    corpo = topOps.length
+      ? `<div class="mt-2">${topOps.map(op => renderLinhaOportunidade(op, jFake)).join('')}</div>`
+      : `<div class="text-center text-gray-500 text-[10px] py-8">Nenhuma estatística relevante (≥65%) encontrada pelo nosso motor neste confronto.</div>`;
+  }
   else if (modalSubTabAtual === 'h2h') {
     // Ordem oficial dos botões H2H: [Mandante] - [H2H] - [Visitante]
     corpo = `
