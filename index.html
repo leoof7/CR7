@@ -116,7 +116,7 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 
 <!-- DATAS GLOBAIS (Visível no Radar e nas Tips) -->
 <div id="global-dates" class="pb-2 pt-2 border-b border-black/5 dark:border-white/10 mb-3 sticky top-[72px] z-30 apple-glass-light">
-<div id="scrollDatas" class="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+<div id="scrollDatas" class="flex flex-nowrap justify-center gap-2 overflow-x-auto no-scrollbar pb-1"></div>
 </div>
 
 <!-- RADAR -->
@@ -735,6 +735,22 @@ function passaLinhaOver(total, linha, padrao) {
 function passaLinhaUnder(total, linha, padrao) {
   const l = (linha !== null && linha !== undefined) ? linha : padrao;
   return total < l;
+}
+
+// O status "FT" que vem da raspagem às vezes é falso-positivo (texto da página
+// bateu com a substring "FT" por acaso). Antes de validar Green/Red, confere
+// também que o horário de início do jogo já passou - evita marcar RED um jogo
+// que nem começou ainda.
+function jogoRealmenteFinalizado(j) {
+  if (j.status !== 'FT') return false;
+  const horaStr = j.hora || '00:00';
+  const dataStr = j.dataJogo;
+  if (!dataStr) return true;
+  const [h, m] = horaStr.split(':').map(Number);
+  const [ano, mes, dia] = dataStr.split('-').map(Number);
+  if ([h, m, ano, mes, dia].some(isNaN)) return true;
+  const inicio = new Date(ano, mes - 1, dia, h, m);
+  return (Date.now() - inicio.getTime()) >= 0;
 }
 
 // Valida Green/Red de UMA oportunidade específica contra o placar real do jogo.
@@ -1789,7 +1805,7 @@ function filtrarOportunidadesPorAba(oportunidades) {
 }
 
 function renderBadgeResultadoOp(op, j) {
-  if (j.status !== 'FT') return '';
+  if (!jogoRealmenteFinalizado(j)) return '';
   const resultado = validarGreenRed(op, j);
   if (resultado === null) {
     return `<span class="bg-gray-500/20 text-gray-400 border border-gray-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase shadow-sm">⏳ Aguard. Intervalo</span>`;
@@ -1832,7 +1848,7 @@ function renderizarTips() {
   let cntReds = 0;
 
   candidatos.forEach(({ j, ops }) => {
-    if (j.status !== 'FT') return;
+    if (!jogoRealmenteFinalizado(j)) return;
     ops.forEach(op => {
       const resultado = validarGreenRed(op, j);
       if (resultado === true) cntGreens++;
@@ -1875,7 +1891,7 @@ function renderizarTips() {
 
     grupo.list.forEach(({ j, ops }) => {
       totalOps += ops.length;
-      if (j.status !== 'FT') return;
+      if (!jogoRealmenteFinalizado(j)) return;
       ops.forEach(op => {
         const resultado = validarGreenRed(op, j);
         if (resultado === true) lgGreens++;

@@ -209,7 +209,7 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
     const page = await context.newPage();
 
-    const diasParaRaspar = ['hoje'];
+    const diasParaRaspar = ['hoje', 'ontem', 'amanha'];
     let totalJogosNaRodada = 0;
 
     for (const diaAlvo of diasParaRaspar) {
