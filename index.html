@@ -1,0 +1,1929 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CR7 SIUUU Terminal v7.0</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+:root { --bg-color: #f2f2f7; --text-main: #1c1c1e; --card-bg: #ffffff; --border-color: rgba(0,0,0,0.08); --glass-bg: rgba(255, 255, 255, 0.85); --pill-bg: #e5e5ea; }
+body.dark-theme { background-color: #000000; color: #f5f5f7; }
+body.dark-theme .apple-card { background-color: #1c1c1e; border-color: rgba(255,255,255,0.05); }
+body.dark-theme .text-gray-900, body.dark-theme .text-black { color: #ffffff !important; }
+body.dark-theme .text-gray-800 { color: #e5e5ea; }
+body.dark-theme .text-gray-600 { color: #a1a1a6; }
+body.dark-theme .text-gray-500 { color: #8e8e93; }
+body.dark-theme .bg-white { background-color: #1c1c1e; border-color: rgba(255,255,255,0.1); }
+body.dark-theme .bg-gray-50 { background-color: #121212; border-color: rgba(255,255,255,0.05); }
+body.dark-theme .bg-gray-100 { background-color: #2c2c2e; border-color: transparent; }
+body.dark-theme .apple-glass-light { background: rgba(28, 28, 30, 0.85); border-top: 1px solid rgba(255,255,255,0.1); box-shadow: 0 -5px 20px rgba(0,0,0,0.5); }
+body.dark-theme input, body.dark-theme select, body.dark-theme textarea { background-color: #2c2c2e; color: #ffffff !important; border-color: rgba(255,255,255,0.1); }
+body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-main); -webkit-tap-highlight-color: transparent; transition: background-color 0.3s ease; }
+.apple-card { background-color: var(--card-bg); border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); transition: background-color 0.3s ease; }
+.apple-glass-light { background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--border-color); transition: background-color 0.3s ease; }
+input, select, textarea { background-color: var(--pill-bg); border: 1px solid transparent; border-radius: 12px; outline: none; transition: all 0.2s; }
+input:focus, select:focus, textarea:focus { border-color: #007aff; }
+::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hidden-view { display: none !important; }
+.bottom-nav-icon { color: #8e8e93; transition: color 0.2s; }
+.bottom-nav-active { color: #007aff; position: relative; font-weight: 700; }
+.bottom-nav-active::after { content: ''; position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); width: 20px; height: 3px; background-color: #007aff; border-radius: 10px; box-shadow: 0 -2px 8px rgba(0,122,255,0.4);}
+.censored-caixa .hide-caixa { filter: blur(6px); pointer-events: none; user-select: none; opacity: 0.8; transition: filter 0.3s ease; }
+.censored-livro .hide-livro { filter: blur(6px); pointer-events: none; user-select: none; opacity: 0.8; transition: filter 0.3s ease; }
+.pill-method { padding: 0.5rem 0.8rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 800; cursor: pointer; transition: all 0.2s ease; text-transform: uppercase; border: 2px solid transparent; opacity: 0.6; }
+.pill-method:active { transform: scale(0.95); }
+.pill-over { background-color: #e0f2fe; color: #0284c7; border-color: #bae6fd; }
+.pill-under { background-color: #ffedd5; color: #ea580c; border-color: #fed7aa; }
+.pill-prob { background-color: #fae8ff; color: #c026d3; border-color: #f5d0fe; }
+.pill-selected { opacity: 1 !important; transform: scale(1.02); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+/* PÍLULAS DE PAÍSES */
+.pill-brasil { background-color: #15803d !important; color: #ffffff !important; font-weight: 900; }
+.pill-bolivia { background-color: #d97706 !important; color: #ffffff !important; font-weight: 900; }
+.pill-bulgaria { background-color: #b91c1c !important; color: #ffffff !important; font-weight: 900; }
+.pill-chile { background-color: #1d4ed8 !important; color: #ffffff !important; font-weight: 900; }
+.pill-colombia { background-color: #ca8a04 !important; color: #000000 !important; font-weight: 900; }
+.pill-eslovaquia { background-color: #4338ca !important; color: #ffffff !important; font-weight: 900; }
+.pill-europa { background-color: #0f172a !important; color: #f59e0b !important; border: 1px solid #f59e0b; font-weight: 900; }
+.pill-islandia { background-color: #0284c7 !important; color: #ffffff !important; font-weight: 900; }
+.pill-polonia { background-color: #be123c !important; color: #ffffff !important; font-weight: 900; }
+.pill-mundo { background-color: #334155 !important; color: #f8fafc !important; font-weight: 900; }
+
+.ai-prompt-box { background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; color: #cbd5e1; border-radius: 1rem; padding: 1.25rem; font-size: 0.75rem; text-align: left; }
+</style>
+</head>
+<body class="pb-28 max-w-lg mx-auto min-h-screen relative dark-theme">
+
+<div id="toastNotificacao" class="fixed top-4 left-4 right-4 apple-glass-light rounded-2xl p-4 z-[100] transform -translate-y-[150%] transition-transform duration-300 flex items-center gap-3 shadow-2xl">
+<span id="toastIcon" class="text-2xl">✅</span>
+<div class="flex flex-col">
+<span id="toastTitle" class="text-[10px] font-bold uppercase tracking-wider text-gray-500">Status</span>
+<span id="toastMsg" class="text-sm font-semibold text-gray-900 dark:text-white">Mensagem</span>
+</div>
+</div>
+
+<div id="infoModal" class="fixed inset-0 z-[200] hidden items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity" onclick="fecharModal(event)">
+<div class="bg-white dark:bg-[#1c1c1e] rounded-3xl w-11/12 max-w-md max-h-[85vh] flex flex-col shadow-2xl relative transform transition-all border border-white/5" onclick="event.stopPropagation()">
+<div class="p-4 border-b border-black/10 dark:border-white/10 flex justify-between items-center sticky top-0 bg-white dark:bg-[#1c1c1e] rounded-t-3xl z-10 shadow-sm">
+<h3 id="modalTitle" class="font-black text-blue-500 uppercase tracking-widest text-xs">Estatísticas</h3>
+<button onclick="fecharModal(event)" class="bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-full w-8 h-8 flex items-center justify-center font-bold active:scale-95 transition-all">✕</button>
+</div>
+<div class="p-4 overflow-y-auto no-scrollbar bg-[#121212]" id="modalBody"></div>
+</div>
+</div>
+
+<header class="p-5 pt-8 flex justify-between items-center sticky top-0 z-40 apple-glass-light border-b-0">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center font-black text-white text-sm shadow-[0_2px_10px_rgba(37,99,235,0.3)]">7</div>
+<h1 class="text-lg font-black tracking-tight text-gray-900 dark:text-white">CR7 <span class="text-blue-600">SIUUU</span></h1>
+</div>
+<div class="flex items-center gap-4">
+<button onclick="sincronizarAoVivoAPIs()" class="text-xs bg-green-600/30 text-green-400 border border-green-500/40 px-2.5 py-1 rounded-full font-bold flex items-center gap-1" title="Sincronizar Placar Ao Vivo">🟢 LIVE</button>
+<button onclick="toggleTheme()" class="text-xl text-gray-500 hover:text-blue-500" title="Dark/Light Mode">🌓</button>
+<button onclick="switchView('config')" class="text-xl text-gray-500 hover:text-blue-500">⚙️</button>
+</div>
+</header>
+
+<main class="px-4">
+
+<!-- DATAS GLOBAIS (Visível no Radar e nas Tips) -->
+<div id="global-dates" class="pb-2 pt-2 border-b border-black/5 dark:border-white/10 mb-3 sticky top-[72px] z-30 apple-glass-light">
+<div id="scrollDatas" class="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar pb-1"></div>
+</div>
+
+<!-- RADAR -->
+<div id="view-radar" class="space-y-4 pb-10">
+<div class="flex justify-between items-center mb-2">
+<div class="flex gap-2 overflow-x-auto no-scrollbar" id="filtrosTempo">
+<button onclick="setFiltroStatus('destaques')" id="tab-destaques" class="px-4 py-1.5 rounded-full text-[10px] font-black bg-white dark:bg-gray-800 text-amber-500 border border-amber-500/30 shrink-0 flex items-center gap-1 uppercase tracking-wider shadow-sm transition-all"><span class="text-sm">⚡</span> TOP</button>
+<button onclick="setFiltroStatus('todos')" id="tab-todos" class="px-4 py-1.5 rounded-full text-[10px] font-bold bg-blue-600 text-white shrink-0 uppercase tracking-wider shadow-sm border border-blue-600 transition-all">📋 Todos</button>
+<button onclick="setFiltroStatus('favoritos')" id="tab-favoritos" class="px-4 py-1.5 rounded-full text-[10px] font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/10 shrink-0 uppercase tracking-wider shadow-sm transition-all">⭐ Fav</button>
+<button onclick="setFiltroStatus('ao_vivo')" id="tab-ao_vivo" class="px-4 py-1.5 rounded-full text-[10px] font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/10 shrink-0 flex items-center gap-1 uppercase tracking-wider transition-all">LIVE</button>
+<button onclick="setFiltroStatus('a_seguir')" id="tab-a_seguir" class="px-4 py-1.5 rounded-full text-[10px] font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/10 shrink-0 uppercase tracking-wider transition-all">⏳ 3H</button>
+<button onclick="setFiltroStatus('finalizados')" id="tab-finalizados" class="px-4 py-1.5 rounded-full text-[10px] font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-white/10 shrink-0 uppercase tracking-wider transition-all">FIM</button>
+</div>
+</div>
+
+<div class="flex items-center justify-between px-1 pb-1 border-b border-black/5 dark:border-white/5">
+<span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total do Filtro: <b id="totalJogosDia" class="text-blue-600 text-xs">0</b> jogos</span>
+</div>
+
+<div class="px-1 mb-3">
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span class="text-gray-400 text-sm">🔍</span></div>
+<input type="text" id="searchRadar" oninput="filtrarJogos()" placeholder="Buscar time ou campeonato..." class="w-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 text-xs py-2.5 pl-8 pr-3 rounded-xl shadow-sm outline-none focus:ring-1 focus:ring-blue-500 font-medium text-gray-700 dark:text-gray-300 placeholder-gray-400">
+</div>
+</div>
+
+<div id="listaJogos" class="space-y-3 pt-2">
+<div class="flex flex-col items-center justify-center py-20 opacity-50"><span class="text-4xl animate-bounce mb-2">⚽</span><span class="text-xs font-bold uppercase tracking-widest text-blue-600">Sincronizando Firebase...</span></div>
+</div>
+</div>
+
+<!-- TIPS -->
+<div id="view-tips" class="hidden-view space-y-4 pb-10">
+<div class="flex justify-between items-center mb-1 pt-2">
+<h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-white">Smart Tips (A.I)</h2>
+<div class="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full border border-black/5 dark:border-white/5">
+<button onclick="switchTipsTab('ativas')" id="btnTipsAtivas" class="px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-bold shadow-sm transition-all">IA Padrões (≥70%)</button>
+<button onclick="switchTipsTab('chances')" id="btnTipsHistorico" class="px-3 py-1 bg-transparent text-gray-600 dark:text-gray-400 rounded-full text-[10px] font-bold transition-all">Grandes Chances (≥80%)</button>
+</div>
+</div>
+
+<div id="tipsSummaryHeader" class="bg-[#1c1c1e] p-3 rounded-2xl border border-white/10 flex items-center justify-between text-xs font-mono font-bold shadow-md">
+  <span class="text-green-400">🟢 Greens: <b id="cntGreensDay">0</b></span>
+  <span class="text-red-400">🔴 Reds: <b id="cntRedsDay">0</b></span>
+  <span class="text-blue-400">🎯 Win Rate: <b id="cntAssertDay">0%</b></span>
+</div>
+
+<div class="px-1 mb-3">
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span class="text-gray-400 text-sm">🔍</span></div>
+<input type="text" id="searchTips" oninput="renderizarTips()" placeholder="Buscar time ou campeonato nas Tips..." class="w-full bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-white/10 text-xs py-2.5 pl-8 pr-3 rounded-xl shadow-sm outline-none focus:ring-1 focus:ring-blue-500 font-medium text-gray-700 dark:text-gray-300 placeholder-gray-400">
+</div>
+</div>
+<div id="listaTips" class="space-y-4"></div>
+</div>
+
+<!-- ALAVANCAGEM -->
+<div id="view-projetos" class="hidden-view space-y-4">
+<h2 class="text-xl font-bold tracking-tight mb-1 text-gray-900 dark:text-white pt-2">Projetos & Alavancagens</h2>
+<p class="text-xs text-gray-500 mb-4">Projeto Soros Dobra-Banca (3 a 4 Degraus).</p>
+<div class="apple-card p-6 rounded-3xl text-center space-y-3 border border-green-500/30">
+<span class="text-[10px] text-green-500 font-bold uppercase tracking-widest block">Degrau 1 de 4 • Target 1.30</span>
+<div class="text-3xl font-black font-mono text-gray-900 dark:text-white">R$ 50.00 ➔ R$ 65.00</div>
+<div id="listaAlavancagemCards" class="space-y-2 pt-2 text-left"></div>
+</div>
+</div>
+
+<!-- TRADE -->
+<div id="view-diario" class="hidden-view space-y-4 pb-10">
+<h2 class="text-xl font-bold tracking-tight mb-4 flex justify-between items-center text-gray-900 dark:text-white pt-2">Registrar Trade <button type="button" onclick="limparFormDiario()" class="text-[10px] bg-gray-200 dark:bg-gray-800 px-3 py-1.5 rounded-lg uppercase font-bold text-gray-600 dark:text-gray-300 border border-black/5">Limpar</button></h2>
+
+<form id="formDiario" onsubmit="event.preventDefault(); registrarTrade(event);" class="apple-card p-5 rounded-3xl space-y-4 text-sm">
+<div class="grid grid-cols-2 gap-3">
+<div><label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Data</label><input type="date" id="tradeData" required class="w-full p-3 font-mono text-xs"></div>
+<div><label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Liga/Comp.</label><input type="text" id="tradeLiga" required class="w-full p-3 font-bold text-xs"></div>
+</div>
+<div><label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Confronto (A x B)</label><input type="text" id="tradeJogo" required class="w-full p-3 font-bold text-sm"></div>
+
+<div class="grid grid-cols-2 gap-3">
+<div><label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Mercado</label><select id="tradeMercado" required class="w-full p-3 font-bold"><option value="Match Odds">Match Odds</option><option value="Gols">Gols</option><option value="Ambas">Ambas</option><option value="Outros">Outros</option></select></div>
+<div>
+<label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Tipo</label>
+<select id="tradeTipo" onchange="alterarCorTipo(this.value)" required class="w-full p-3 font-bold text-blue-600 bg-white border border-gray-200">
+<option value="BACK" class="font-bold text-blue-600">BACK</option>
+<option value="LAY" class="font-bold text-pink-600">LAY</option>
+</select>
+</div>
+</div>
+
+<div>
+<label class="block text-gray-500 text-[10px] uppercase font-bold mb-2">Método Operacional</label>
+<input type="hidden" id="tradeMetodo" value="Over Limite FT" required>
+<div class="space-y-2">
+<div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+<button type="button" onclick="selectMethod('Over Limite FT', this)" class="pill-method pill-over pill-selected">Over Limite FT</button>
+<button type="button" onclick="selectMethod('Over 0.5 HT', this)" class="pill-method pill-over">Over 0.5 HT</button>
+<button type="button" onclick="selectMethod('Over Limite HT', this)" class="pill-method pill-over">Over Limite HT</button>
+<button type="button" onclick="selectMethod('Over a Frente HT', this)" class="pill-method pill-over">Over a Frente HT</button>
+</div>
+<div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+<button type="button" onclick="selectMethod('Under Limite 2º T', this)" class="pill-method pill-under">Under Limite 2º T</button>
+<button type="button" onclick="selectMethod('Under Limite HT', this)" class="pill-method pill-under">Under Limite HT</button>
+<button type="button" onclick="selectMethod('Under a Frente HT', this)" class="pill-method pill-under">Under a Frente HT</button>
+</div>
+<div class="flex gap-1.5 overflow-x-auto no-scrollbar">
+<button type="button" onclick="selectMethod('1x2', this)" class="pill-method pill-prob">1x2</button>
+<button type="button" onclick="selectMethod('Back Favorito', this)" class="pill-method pill-prob">Back Favorito</button>
+<button type="button" onclick="selectMethod('Lay Zebra', this)" class="pill-method pill-prob">Lay Zebra</button>
+</div>
+</div>
+</div>
+
+<div class="grid grid-cols-2 gap-3 pt-2">
+<div><label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Odd Entrada</label><input type="text" id="tradeOddEntrada" required class="w-full p-3 font-mono font-bold"></div>
+<div><label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Odd Saída</label><input type="text" id="tradeOddSaida" placeholder="(Opcional)" class="w-full p-3 font-mono font-bold text-gray-400"></div>
+</div>
+
+<div class="grid grid-cols-2 gap-3">
+<div><label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Stake (R$)</label><input type="number" step="0.01" id="tradeStake" required class="w-full p-3 font-mono font-bold text-blue-600"></div>
+<div><label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Status Final</label><select id="tradeStatus" required class="w-full p-3 font-black bg-white border border-gray-200"><option value="GREEN" class="text-green-600">🟢 GREEN</option><option value="RED" class="text-red-600">🔴 RED</option><option value="VOID">♻️ VOID</option></select></div>
+</div>
+
+<div><label class="block text-gray-500 text-[10px] uppercase font-bold mb-1 border-t border-black/5 dark:border-white/5 pt-3 mt-1">P/L Apurado</label><input type="text" id="tradePL" readonly value="R$ 0.00" class="w-full p-3 font-black text-lg text-center border border-black/5 bg-gray-50 dark:bg-gray-800"></div>
+
+<button type="submit" id="btnSalvarTrade" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl text-sm active:scale-95 uppercase tracking-widest mt-2 shadow-md">SALVAR NO LIVRO</button>
+</form>
+</div>
+
+<!-- GESTÃO -->
+<div id="view-gestao" class="hidden-view space-y-6 pb-10">
+<h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-white pt-2">Livro de Gestão</h2>
+
+<div class="apple-card rounded-3xl p-6 border border-blue-500/20 shadow-lg relative">
+<button onclick="togglePrivacy('caixa')" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-sm">👁️</button>
+<span class="text-[10px] uppercase font-bold text-blue-600 tracking-widest block mb-1">Banca Atual (Caixa)</span>
+<div class="text-4xl font-black font-mono text-gray-900 dark:text-white mb-6 hide-caixa" id="dashBancaAtual">R$ 10.00</div>
+<div class="flex gap-2 hide-caixa">
+<button onclick="gerenciarCaixa('APORTE')" class="flex-1 bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider">⬆️ Aporte</button>
+<button onclick="gerenciarCaixa('SAQUE')" class="flex-1 bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/30 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider">⬇️ Saque</button>
+</div>
+</div>
+
+<div class="flex justify-between items-center px-1">
+<div class="flex gap-2 overflow-x-auto no-scrollbar">
+<button onclick="switchGestaoSubTab('pl')" id="btn-gestao-pl" class="px-4 py-2 rounded-full text-xs font-bold bg-blue-600 text-white shrink-0 shadow-sm">Resumo</button>
+<button onclick="switchGestaoSubTab('estudo')" id="btn-gestao-estudo" class="px-4 py-2 rounded-full text-xs font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 shrink-0">Visão</button>
+<button onclick="switchGestaoSubTab('ultimas')" id="btn-gestao-ultimas" class="px-4 py-2 rounded-full text-xs font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 shrink-0">Histórico</button>
+</div>
+<button onclick="togglePrivacy('livro')" class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-sm shrink-0">👁️</button>
+</div>
+
+<div id="gestao-sub-pl" class="space-y-4">
+<div class="grid grid-cols-2 gap-4">
+<div class="apple-card p-4 rounded-3xl flex flex-col items-center justify-center"><span class="text-[10px] text-gray-500 font-bold uppercase mb-1 tracking-widest">Lucro Total</span><span id="dashTotalPL" class="text-xl font-black text-gray-900 dark:text-white font-mono hide-livro">R$ 0.00</span></div>
+<div class="apple-card p-4 rounded-3xl flex flex-col items-center justify-center"><span class="text-[10px] text-gray-500 font-bold uppercase mb-1 tracking-widest">Win Rate</span><span id="dashWinRate" class="text-2xl font-black text-blue-600 font-mono">0%</span></div>
+</div>
+<div class="apple-card p-5 rounded-3xl"><h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 border-b border-black/5 dark:border-white/5 pb-2">Desempenho por Método</h3><div id="listaMetodosPL" class="space-y-2"></div></div>
+</div>
+
+<div id="gestao-sub-estudo" class="hidden space-y-4">
+<div class="apple-card p-5 rounded-3xl">
+<h3 class="text-[10px] font-bold text-gray-900 dark:text-white uppercase tracking-widest mb-4 border-b border-black/5 dark:border-white/5 pb-2">📅 Calendário de Resultados</h3>
+<div class="grid grid-cols-7 gap-1.5 text-center text-[9px] font-bold text-gray-400 mb-2"><div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div></div>
+<div id="calendar-grid" class="grid grid-cols-7 gap-1.5 text-center"></div>
+</div>
+</div>
+
+<div id="gestao-sub-ultimas" class="hidden space-y-4">
+<div class="apple-card p-5 rounded-3xl"><div id="listaUltimasEntradasContainer" class="space-y-2"></div></div>
+</div>
+</div>
+
+<!-- ⚙️ COCKPIT -->
+<div id="view-config" class="hidden-view space-y-6 pb-10">
+<h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-white pt-2">Sala de Máquinas</h2>
+
+<div class="apple-card p-5 rounded-3xl border border-blue-500/30 shadow-md">
+<div class="flex justify-between items-center mb-2">
+<h3 class="text-xs font-black text-blue-500 uppercase tracking-widest">⏱️ Status do Motor Front-End</h3>
+<span id="badgeStatusMotor" class="bg-gray-800 text-gray-400 px-3 py-1 rounded-full text-[9px] font-mono font-bold uppercase">AGUARDANDO</span>
+</div>
+<div class="text-3xl font-black font-mono text-gray-900 dark:text-white my-3" id="timerMotorExecucao">00:00m</div>
+<p id="txtStatusMotorDetails" class="text-xs text-gray-400 font-medium mb-3">Pronto para iniciar raspagem.</p>
+<div class="mt-4 pt-3 border-t border-black/5 dark:border-white/10 bg-gray-100 dark:bg-black/40 p-3 rounded-2xl">
+<span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider block mb-1">Status Sincronização Ao Vivo (Back-end):</span>
+<span id="txtStatusApiLive" class="text-xs font-mono text-green-400 font-bold block">Aguardando ping do backend...</span>
+</div>
+</div>
+
+<!-- INTEGRAÇÃO COM GOOGLE GEMINI API -->
+<div class="apple-card p-5 rounded-3xl border border-purple-500/30 shadow-md">
+<h3 class="text-xs font-black text-purple-400 uppercase tracking-widest mb-3">🤖 Google Gemini API (Análise Real LLM)</h3>
+<div class="space-y-3">
+  <div>
+    <label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Gemini API Key</label>
+    <input type="password" id="configGeminiKey" placeholder="AQ.Ab8..." class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
+  </div>
+  <button onclick="salvarGeminiKey()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Salvar Chave Gemini</button>
+</div>
+</div>
+
+<div class="apple-card p-5 rounded-3xl border border-blue-500/20 shadow-md">
+<h3 class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3">🔌 Conexões & APIs Ao Vivo</h3>
+<div class="space-y-4">
+<div>
+<label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">ID da Planilha Theo</label>
+<div class="flex gap-2">
+<input type="text" id="configTheoID" placeholder="Ex: 18cb78582e" value="afba4f6a53" class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
+<button onclick="salvarConfigMotor()" id="btnSalvarCockpit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors">Salvar & Rodar</button>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3 pt-2 border-t border-black/5 dark:border-white/10">
+<div>
+<label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">API-Sports Key</label>
+<input type="password" id="configApiFutebol" value="e131aa61be7308e97441e475374f47f1" class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
+</div>
+<div>
+<label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Sportmonks Token</label>
+<input type="password" id="configSportmonks" value="RaCnlPpnktbtlbuzsNd51VDXKnCcyZ4QRgtYlOFG4Av91CcQMNrTf4egKM9D" class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
+</div>
+</div>
+<button onclick="testarApisCockpit()" class="w-full bg-[#2c2c2e] hover:bg-gray-700 text-blue-400 font-bold py-3 rounded-xl text-[10px] uppercase tracking-wider transition-colors border border-white/5 shadow-sm">📡 Testar Conexões (Ao Vivo)</button>
+<div id="apiTestLog" class="text-[9px] font-mono mt-2 p-3 bg-black/40 rounded-xl border border-white/5 break-words">Log de conexão...</div>
+<div id="apiTestResults" class="space-y-1"></div>
+<p class="text-[9px] text-gray-500 mt-2">Ao salvar, o backend passará a monitorar os placares ao vivo por essas APIs a cada 5 minutos.</p>
+</div>
+</div>
+
+<div class="apple-card p-5 rounded-3xl border-2 border-red-500/20 shadow-md">
+<h3 class="text-xs font-black text-red-600 uppercase tracking-widest mb-3">💣 Limpeza de Banco Firestore</h3>
+<button onclick="limparBancoFirestore()" class="w-full bg-red-50 hover:bg-red-100 dark:bg-red-900/30 text-red-600 border border-red-200 dark:border-red-500/40 font-bold py-3 rounded-2xl text-xs uppercase tracking-widest transition-colors">LIMPAR COLEÇÃO JOGOS AO VIVO</button>
+<div class="mt-4 p-4 border border-blue-500/30 rounded-xl bg-blue-500/10 text-center">
+    <h3 class="text-sm font-bold text-blue-400 mb-2">Forçar Varredura Agora</h3>
+    <button onclick="forcarTesteMotor()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-500/30 transition-all">
+        🚀 TESTAR MOTOR (DISPARO MANUAL)
+    </button>
+</div>
+</div>
+</div>
+</main>
+
+<nav class="fixed bottom-0 w-full max-w-lg mx-auto apple-glass-light pb-6 pt-2 px-6 flex justify-between items-center z-50 rounded-t-3xl shadow-lg border-t border-white/10">
+<button onclick="switchView('radar')" id="nav-radar" class="flex flex-col items-center p-2 bottom-nav-active"><span class="text-xl mb-1">⚡</span><span class="text-[9px] font-bold">Radar</span></button>
+<button onclick="switchView('tips')" id="nav-tips" class="flex flex-col items-center p-2 text-gray-500"><span class="text-xl mb-1">💡</span><span class="text-[9px] font-bold">Tips</span></button>
+<button onclick="switchView('projetos')" id="nav-projetos" class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-black shadow-lg -top-3 relative"><span class="text-lg">🚀</span></button>
+<button onclick="switchView('diario')" id="nav-diario" class="flex flex-col items-center p-2 text-gray-500"><span class="text-xl mb-1">💲</span><span class="text-[9px] font-bold">Trade</span></button>
+<button onclick="switchView('gestao')" id="nav-gestao" class="flex flex-col items-center p-2 text-gray-500"><span class="text-xl mb-1">📖</span><span class="text-[9px] font-bold">Livro</span></button>
+</nav>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCWiM3pBtP_WwoVS7XHWz6K-DX7GveCQGo",
+  authDomain: "crterminalsiu.firebaseapp.com",
+  projectId: "crterminalsiu",
+  storageBucket: "crterminalsiu.firebasestorage.app",
+  messagingSenderId: "964211577075",
+  appId: "1:964211577075:web:f0519ee06e81a65c36a786"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.settings({ experimentalForceLongPolling: true, useFetchStreams: false });
+
+let todosOsJogos = [];
+let diarioOperacoes = [];
+
+const agoraSP = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+let dataSelecionadaISO = `${agoraSP.getFullYear()}-${String(agoraSP.getMonth() + 1).padStart(2, '0')}-${String(agoraSP.getDate()).padStart(2, '0')}`;
+
+let statusFiltroAtual = 'todos';
+let tipsTabAtual = 'ativas';
+let modalSubTabAtual = 'geral';
+let privacyCaixa = false;
+let privacyLivro = false;
+let timerInterval = null;
+let renderDebounce = null; 
+
+let favoritosIds = JSON.parse(localStorage.getItem('cr7_favoritos') || '[]');
+let fixadosIds = JSON.parse(localStorage.getItem('cr7_fixados') || '[]');
+
+function esc(str) { return String(str||'').replace(/['"`\\]/g, "").trim(); }
+function cleanString(str) { return String(str||'').replace(/\W/g, '').toLowerCase(); }
+
+function toggleTheme() {
+  document.body.classList.toggle('dark-theme');
+  const isDark = document.body.classList.contains('dark-theme');
+  localStorage.setItem('cr7_theme', isDark ? 'dark' : 'light');
+}
+
+function salvarGeminiKey() {
+  const k = document.getElementById('configGeminiKey')?.value.trim();
+  if(k) {
+    localStorage.setItem('cr7_gemini_key', k);
+    mostrarToast("Chave do Gemini salva com sucesso!");
+  }
+}
+
+function sincronizarAoVivoAPIs() {
+  mostrarToast("Sincronização transferida para o Back-end. O placar atualiza automaticamente a cada 5min!", false);
+}
+
+// FILTRO GLOBAL CONTRA ESCANTEIOS E CARTÕES
+function isCardOrCornerRule(ruleText) {
+  const txt = (ruleText || '').toLowerCase();
+  return txt.includes('cartõ') || txt.includes('carto') || txt.includes('canto') || 
+         txt.includes('escanteio') || txt.includes('corner') || txt.includes('card');
+}
+
+async function testarApisCockpit() {
+    const smToken = document.getElementById('configSportmonks').value;
+    const afKey = document.getElementById('configApiFutebol').value;
+    const logBox = document.getElementById('apiTestLog');
+    const resultsBox = document.getElementById('apiTestResults');
+
+    logBox.innerHTML = '<span class="text-blue-400">Iniciando teste de conectividade...</span>';
+    resultsBox.innerHTML = '';
+    let liveGames = [];
+
+    try {
+        logBox.innerHTML += '<br><span class="text-gray-400">Consultando Sportmonks (1/2)...</span>';
+        const smRes = await fetch(`https://api.sportmonks.com/v3/football/livescores/inplay?api_token=${smToken}&include=scores,state,events`);
+        if(smRes.ok) {
+            const smData = await smRes.json();
+            logBox.innerHTML += `<br><span class="text-green-400">✅ Sportmonks OK! (${smData.data?.length || 0} ativos)</span>`;
+            if(smData.data) {
+                smData.data.slice(0,3).forEach(g => {
+                    const h = g.participants?.find(p => p.meta?.location === 'home')?.name || 'Casa';
+                    const a = g.participants?.find(p => p.meta?.location === 'away')?.name || 'Fora';
+                    liveGames.push(`[SM] ${h} x ${a} (${g.state?.minute || 'LIVE'})`);
+                });
+            }
+        } else {
+             logBox.innerHTML += `<br><span class="text-red-400">❌ Erro Sportmonks: Status ${smRes.status}</span>`;
+        }
+
+        logBox.innerHTML += '<br><span class="text-gray-400">Consultando API-Sports (2/2)...</span>';
+        const afRes = await fetch(`https://v3.football.api-sports.io/fixtures?live=all`, { headers: { 'x-apisports-key': afKey }});
+        if(afRes.ok) {
+            const afData = await afRes.json();
+            logBox.innerHTML += `<br><span class="text-green-400">✅ API-Sports OK! (${afData.response?.length || 0} ativos)</span>`;
+            if(afData.response) {
+                afData.response.slice(0,3).forEach(g => {
+                    liveGames.push(`[AS] ${g.teams?.home?.name} x ${g.teams?.away?.name} (${g.fixture?.status?.elapsed || 'LIVE'}')`);
+                });
+            }
+        } else {
+            logBox.innerHTML += `<br><span class="text-red-400">❌ Erro API-Sports: Status ${afRes.status}</span>`;
+        }
+
+        if(liveGames.length > 0) {
+            resultsBox.innerHTML = '<h4 class="text-[10px] text-gray-500 font-bold mb-1 mt-2">AMOSTRAGEM AO VIVO (Top 5):</h4>' + 
+            liveGames.slice(0, 5).map(g => `<div class="text-[9px] bg-black/20 p-2 rounded-lg mb-1 text-gray-300 font-mono border border-white/5">${g}</div>`).join('');
+        } else {
+            resultsBox.innerHTML = '<div class="text-[10px] text-gray-500 mt-2">Nenhum jogo rolando no momento (segundo as APIs).</div>';
+        }
+    } catch (e) {
+         logBox.innerHTML += `<br><span class="text-red-400">❌ Falha de Rede: ${e.message}</span>`;
+    }
+}
+
+function parseRateToPercent(rateStr) {
+  if (!rateStr) return 0;
+  const str = String(rateStr).trim();
+  if (str.includes('%')) {
+    const num = parseFloat(str.replace('%', ''));
+    return isNaN(num) ? 0 : num / 100;
+  }
+  if (str.includes('/')) {
+    const parts = str.split('/');
+    const n = parseFloat(parts[0]);
+    const d = parseFloat(parts[1]);
+    if (!isNaN(n) && !isNaN(d) && d > 0) return n / d;
+  }
+  const val = parseFloat(str);
+  if (!isNaN(val)) return val > 1 ? val / 100 : val;
+  return 0;
+}
+
+function isValidTipSample(rateStr, minPercentRequired = 0.70) {
+  const p = parseRateToPercent(rateStr);
+  return p >= minPercentRequired;
+}
+
+function getMethodPillStyle(metodo) {
+  const m = (metodo || '').toUpperCase();
+  if (m.includes('OVER 0.5 HT')) return 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm';
+  if (m.includes('OVER A FRENTE')) return 'bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm';
+  if (m.includes('OVER LIMITE HT')) return 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm';
+  if (m.includes('OVER')) return 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm';
+  if (m.includes('UNDER A FRENTE')) return 'bg-orange-500/20 text-orange-300 border border-orange-500/40 shadow-sm';
+  if (m.includes('UNDER')) return 'bg-amber-600/20 text-amber-300 border border-amber-500/40 shadow-sm';
+  if (m.includes('BACK FAVORITO')) return 'bg-green-500/20 text-green-300 border border-green-500/40 shadow-sm';
+  if (m.includes('LAY ZEBRA')) return 'bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-sm';
+  if (m.includes('1X2')) return 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm';
+  return 'bg-purple-600/20 text-purple-300 border border-purple-500/40 shadow-sm';
+}
+
+function extrairOportunidadeJogo(j, requiredRate = 0.70) {
+  try {
+    let pkt = {};
+    try { pkt = JSON.parse(j.eventosJSON || '{}'); } catch(e){}
+
+    const tendencias = pkt.principais_json?.tendencias || [];
+    const confronto = pkt.principais_json?.confronto || [];
+    const rGols = pkt.raiox_json?.gols || [];
+    const rDesempenho = pkt.raiox_json?.desempenho || [];
+
+    // Acumula TODAS as oportunidades encontradas e retorna a melhor
+    const oportunidades = [];
+
+    // =========== 1. TENDÊNCIAS (rate vem como "3/5", "7/10", "80%", etc.) ===========
+    for (const t of tendencias) {
+      if (isCardOrCornerRule(t.regra)) continue;
+      const rateVal = parseRateToPercent(t.rate);
+      if (rateVal < 0.50) continue; // piso mínimo = 50%
+      const rUpper = (t.regra || '').toUpperCase();
+      let metodo = '';
+
+      if (rUpper.includes('0.5') && (rUpper.includes('HT') || rUpper.includes('1'))) metodo = 'OVER 0.5 HT';
+      else if (rUpper.includes('UNDER') || rUpper.includes('MENOS')) {
+        if (rUpper.includes('HT') || rUpper.includes('1')) metodo = 'UNDER LIMITE HT';
+        else metodo = 'UNDER LIMITE 2ºT';
+      }
+      else if (rUpper.includes('VITÓRIA') || rUpper.includes('VITORIA') || rUpper.includes('VENCE') || rUpper.includes('SEM DERROTA')) metodo = 'BACK FAVORITO';
+      else if (rUpper.includes('AMBAS') || rUpper.includes('OVER') || rUpper.includes('MAIS')) metodo = 'OVER LIMITE FT';
+      else if (rUpper.includes('GOL') || rUpper.includes('MARCA')) metodo = 'OVER LIMITE FT';
+      else metodo = 'OVER LIMITE FT';
+
+      oportunidades.push({ metodo, regra: t.regra, rateStr: t.rate, percent: Math.round(rateVal * 100) });
+    }
+
+    // =========== 2. CONFRONTO DIRETO ===========
+    for (const c of confronto) {
+      if (isCardOrCornerRule(c.metrica)) continue;
+      const rateVal = parseRateToPercent(c.valor);
+      if (rateVal < 0.50) continue;
+      const mUpper = (c.metrica || '').toUpperCase();
+      let metodo = '';
+
+      if (mUpper.includes('AMBAS MARCAM') || mUpper.includes('AMBAS')) metodo = 'OVER LIMITE FT';
+      else if (mUpper.includes('MAIS DE') || mUpper.includes('OVER')) metodo = 'OVER LIMITE FT';
+      else if (mUpper.includes('MENOS DE') || mUpper.includes('UNDER')) metodo = 'UNDER LIMITE HT';
+      else if (mUpper.includes('VITÓRIA') || mUpper.includes('VITORIA') || mUpper.includes('SEM DERROTA')) metodo = 'BACK FAVORITO';
+      else metodo = 'OVER LIMITE FT';
+
+      oportunidades.push({ metodo, regra: c.metrica, rateStr: c.valor, percent: Math.round(rateVal * 100) });
+    }
+
+    // =========== 3. GOLS (Raio-X) - valores numéricos e % ===========
+    for (const g of rGols) {
+      if (!g.metrica) continue;
+      const mUpper = g.metrica.toUpperCase();
+      if (g.tipo === 'relogio') continue;
+
+      // Tenta extrair valor útil de casa, fora ou media
+      const valCasa = parseRateToPercent(g.casa);
+      const valFora = parseRateToPercent(g.fora);
+      const valMedia = parseRateToPercent(g.media);
+      const melhorVal = Math.max(valCasa, valFora, valMedia);
+
+      if (melhorVal < 0.50) continue;
+
+      let metodo = '';
+      if (mUpper.includes('OVER 0.5') && mUpper.includes('HT')) metodo = 'OVER 0.5 HT';
+      else if (mUpper.includes('OVER') && (mUpper.includes('HT') || mUpper.includes('1'))) metodo = 'OVER LIMITE HT';
+      else if (mUpper.includes('OVER 1.5') || mUpper.includes('OVER 2.5') || mUpper.includes('OVER 3.5')) metodo = 'OVER LIMITE FT';
+      else if (mUpper.includes('UNDER') && (mUpper.includes('HT') || mUpper.includes('1'))) metodo = 'UNDER LIMITE HT';
+      else if (mUpper.includes('UNDER 2.5') || mUpper.includes('UNDER 3.5')) metodo = 'UNDER LIMITE 2ºT';
+      else if (mUpper.includes('MÉDIA') || mUpper.includes('MEDIA') || mUpper.includes('GOLS MARCADOS')) metodo = 'OVER LIMITE FT';
+      else continue;
+
+      oportunidades.push({ metodo, regra: g.metrica, rateStr: `${Math.round(melhorVal * 100)}%`, percent: Math.round(melhorVal * 100) });
+    }
+
+    // =========== 4. DESEMPENHO (Raio-X) - % ou frações ===========
+    for (const d of rDesempenho) {
+      if (!d.metrica) continue;
+      const mUpper = d.metrica.toUpperCase();
+
+      const valCasa = parseRateToPercent(d.casa);
+      const valFora = parseRateToPercent(d.fora);
+      const melhorVal = Math.max(valCasa, valFora);
+
+      if (melhorVal < 0.50) continue;
+
+      let metodo = '';
+      if (mUpper.includes('MARCOU PRIMEIRO') || mUpper.includes('PRIMEIRO GOL')) metodo = 'OVER 0.5 HT';
+      else if (mUpper.includes('VENCEU APÓS ABRIR') || mUpper.includes('VENCEU')) metodo = 'BACK FAVORITO';
+      else if (mUpper.includes('AMPLIOU') || mUpper.includes('SOFREU EMPATE')) metodo = 'OVER A FRENTE HT';
+      else if (mUpper.includes('VIROU') || mUpper.includes('BUSCOU')) metodo = 'LAY ZEBRA';
+      else if (mUpper.includes('POSSE') || mUpper.includes('POSIÇÃO') || mUpper.includes('POSICAO')) continue;
+      else continue;
+
+      oportunidades.push({ metodo, regra: d.metrica, rateStr: `${Math.round(melhorVal * 100)}%`, percent: Math.round(melhorVal * 100) });
+    }
+
+    // =========== 5. FILTRAR e RETORNAR A MELHOR ===========
+    // Filtra pela taxa mínima exigida
+    const validas = oportunidades.filter(o => o.percent >= Math.round(requiredRate * 100));
+    if (validas.length > 0) {
+      validas.sort((a, b) => b.percent - a.percent);
+      return validas[0];
+    }
+
+    // =========== 6. FALLBACK: ODDS (sem dados stat suficientes) ===========
+    const oddC = parseFloat(j.oddCasa);
+    const oddF = parseFloat(j.oddFora);
+
+    if (!isNaN(oddC) && oddC >= 1.10 && oddC <= 1.70) {
+      return { metodo: 'BACK FAVORITO', regra: `Favorito em Casa: ${j.mandante} (Odd ${oddC.toFixed(2)})`, rateStr: '75%', percent: 75 };
+    }
+    if (!isNaN(oddF) && oddF >= 1.10 && oddF <= 1.70) {
+      return { metodo: 'BACK FAVORITO', regra: `Favorito Fora: ${j.visitante} (Odd ${oddF.toFixed(2)})`, rateStr: '75%', percent: 75 };
+    }
+
+    // Odds desiguais mas não extremas -> possível 1X2
+    if (!isNaN(oddC) && !isNaN(oddF)) {
+      const diff = Math.abs(oddC - oddF);
+      if (diff >= 0.50 && Math.min(oddC, oddF) <= 2.20) {
+        const fav = oddC < oddF ? j.mandante : j.visitante;
+        const favOdd = oddC < oddF ? oddC : oddF;
+        return { metodo: '1X2', regra: `Favoritismo claro: ${fav} (Odd ${favOdd.toFixed(2)})`, rateStr: '70%', percent: 70 };
+      }
+    }
+
+    // Odds altas de ambos -> possível Lay Zebra
+    if (!isNaN(oddC) && !isNaN(oddF) && oddC >= 3.50 && oddF >= 3.50) {
+      return { metodo: 'LAY ZEBRA', regra: `Empate provável: Odds equilibradas altas`, rateStr: '70%', percent: 70 };
+    }
+
+    // =========== 7. FALLBACK FINAL: DESTAQUE ===========
+    if (j.isDestaque) {
+      return { metodo: 'OVER LIMITE FT', regra: 'Confluência Estatística em Jogo Destaque', rateStr: '70%', percent: 70 };
+    }
+  } catch (e) { console.warn('Erro em extrairOportunidadeJogo:', e); }
+
+  return null;
+}
+
+function traduzirLinhaSegura(regra, oddC, oddF) {
+  let text = regra.toUpperCase();
+  const c = parseFloat(oddC);
+  const f = parseFloat(oddF);
+  if (text.includes("MAIS DE 2.5") || text.includes("OVER 2.5")) return "Mais de 1.5 Gols (Seguro)";
+  if (text.includes("MAIS DE 1.5") || text.includes("OVER 1.5")) return "Over 0.5 HT (Ou +1.5 FT)";
+  if (text.includes("VITÓRIA") || text.includes("VITORIA") || text.includes("VENCE")) {
+      if ((text.includes("CASA") || text.includes("MANDANTE")) && c <= 1.75) return "Dupla Chance: Casa ou Empate";
+      if ((text.includes("FORA") || text.includes("VISITANTE")) && f <= 1.75) return "Dupla Chance: Fora ou Empate";
+  }
+  return regra;
+}
+
+function validarGreenRed(metodo, gc, gf) {
+  const m = (metodo || '').toUpperCase();
+  const gcNum = parseInt(gc) || 0;
+  const gfNum = parseInt(gf) || 0;
+  const total = gcNum + gfNum;
+  // OVER
+  if (m.includes('OVER LIMITE FT') || m.includes('OVER 2.5') || m.includes('MAIS DE 2.5')) return total >= 3;
+  if (m.includes('OVER 0.5 HT')) return total >= 1;
+  if (m.includes('OVER LIMITE HT') || m.includes('OVER 1.5') || m.includes('MAIS DE 1.5')) return total >= 2;
+  if (m.includes('OVER A FRENTE')) return total >= 1;
+  // UNDER
+  if (m.includes('UNDER LIMITE 2') || m.includes('UNDER 2.5') || m.includes('MENOS DE 2.5')) return total <= 2;
+  if (m.includes('UNDER LIMITE HT') || m.includes('UNDER 1.5')) return total <= 1;
+  if (m.includes('UNDER A FRENTE')) return total <= 1;
+  // RESULTADO
+  if (m.includes('BACK FAVORITO') || m.includes('1X2')) return gcNum !== gfNum;
+  if (m.includes('LAY ZEBRA')) return gcNum !== gfNum;
+  if (m.includes('AMBAS') || m.includes('BTTS')) return gcNum > 0 && gfNum > 0;
+  return total > 0;
+}
+
+function getCountryPillClass(pais) {
+  const p = (pais || '').toUpperCase().trim();
+  if (p.includes('BRASIL')) return 'pill-brasil';
+  if (p.includes('BOLÍVIA') || p.includes('BOLIVIA')) return 'pill-bolivia';
+  if (p.includes('BULGÁRIA') || p.includes('BULGARIA')) return 'pill-bulgaria';
+  if (p.includes('CHILE')) return 'pill-chile';
+  if (p.includes('COLÔMBIA') || p.includes('COLOMBIA')) return 'pill-colombia';
+  if (p.includes('ESLOVÁQUIA') || p.includes('ESLOVAQUIA')) return 'pill-eslovaquia';
+  if (p.includes('EUROPA') || p.includes('CHAMPIONS') || p.includes('CONFERENCE')) return 'pill-europa';
+  if (p.includes('ISLÂNDIA') || p.includes('ISLANDIA')) return 'pill-islandia';
+  if (p.includes('POLÔNIA') || p.includes('POLONIA')) return 'pill-polonia';
+  return 'pill-mundo';
+}
+
+window.toggleUiTab = function(btn, groupClass, targetId) {
+    document.querySelectorAll('.' + groupClass).forEach(el => el.classList.add('hidden'));
+    const target = document.getElementById(targetId);
+    if (target) target.classList.remove('hidden');
+    if (btn && btn.parentElement) {
+        Array.from(btn.parentElement.children).forEach(b => {
+            b.classList.remove('bg-[#3a3a3c]', 'text-white', 'shadow-sm');
+            b.classList.add('text-gray-400');
+        });
+        btn.classList.remove('text-gray-400');
+        btn.classList.add('bg-[#3a3a3c]', 'text-white', 'shadow-sm');
+    }
+};
+
+// TABELA DE H2H (Sem coluna e sem gráficos de pressão, com ícones G/R)
+function renderH2HList(h2hData, teamFilter) {
+    let filtered = h2hData || [];
+    if (teamFilter) {
+        filtered = filtered.filter(h => h.mandante.includes(teamFilter) || h.visitante.includes(teamFilter));
+    }
+    if (!filtered.length) return `<p class="text-gray-500 text-[10px] text-center italic py-4">Sem histórico recente.</p>`;
+    
+    let html = `
+    <div class="overflow-x-auto no-scrollbar bg-[#121212] rounded-xl border border-white/5 mt-2">
+        <table class="w-full text-left text-[9px] text-gray-400 whitespace-nowrap">
+            <thead>
+                <tr class="uppercase font-black border-b border-white/10 tracking-wider bg-[#1c1c1e]">
+                    <th class="px-2 py-2.5 text-center">Data</th>
+                    <th class="px-2 py-2.5">Partida</th>
+                    <th class="px-1 py-2.5 text-center">Odd</th>
+                    <th class="px-1 py-2.5 text-center" title="Marcou Primeiro">M1</th>
+                    <th class="px-1 py-2.5 text-center" title="Primeiro Tempo">1ºT</th>
+                    <th class="px-1 py-2.5 text-center" title="Segundo Tempo">2ºT</th>
+                    <th class="px-1 py-2.5 text-center" title="Não Sofreu">NS</th>
+                    <th class="px-2 py-2.5 text-center">Placar</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/5">`;
+            
+    filtered.forEach(item => {
+        const getIcon = (val) => {
+            if (val === 'G') return '<span class="text-green-500 font-black text-[11px] drop-shadow-md">✔</span>';
+            if (val === 'R') return '<span class="text-red-500 font-black text-[11px] drop-shadow-md">✘</span>';
+            return '<span class="text-gray-600 font-black text-[12px]">-</span>';
+        };
+        
+        let corPlacar = 'bg-[#1c1c1e] text-white border-white/10'; 
+        const matchScore = (item.placar || '').match(/(\d+)\s*-\s*(\d+)/);
+        if(matchScore && teamFilter) {
+            const g1 = parseInt(matchScore[1]);
+            const g2 = parseInt(matchScore[2]);
+            if(item.mandante.includes(teamFilter)) {
+                if (g1 > g2) corPlacar = 'bg-green-500/20 text-green-400 border-green-500/30';
+                else if (g1 < g2) corPlacar = 'bg-pink-500/20 text-pink-400 border-pink-500/30';
+            } else if (item.visitante.includes(teamFilter)) {
+                if (g2 > g1) corPlacar = 'bg-green-500/20 text-green-400 border-green-500/30';
+                else if (g2 < g1) corPlacar = 'bg-pink-500/20 text-pink-400 border-pink-500/30';
+            }
+        } else if (matchScore) {
+            const g1 = parseInt(matchScore[1]);
+            const g2 = parseInt(matchScore[2]);
+            if(g1 !== g2) corPlacar = 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+        }
+
+        html += `
+        <tr class="hover:bg-white/5 transition-colors">
+            <td class="px-2 py-3 text-center font-mono text-[8px] text-gray-500">${esc(item.data)}</td>
+            <td class="px-2 py-3 font-bold text-gray-300">
+                <div class="flex flex-col gap-0.5">
+                    <span class="truncate max-w-[110px] ${item.mandante.includes(teamFilter) ? 'text-white' : ''}">${esc(item.mandante)}</span>
+                    <span class="truncate max-w-[110px] ${item.visitante.includes(teamFilter) ? 'text-white' : 'text-gray-500'}">${esc(item.visitante)}</span>
+                </div>
+            </td>
+            <td class="px-1 py-3 text-center font-mono font-bold text-amber-500/80">${item.odd || '-'}</td>
+            <td class="px-1 py-3 text-center">${getIcon(item.m1)}</td>
+            <td class="px-1 py-3 text-center">${getIcon(item.t1)}</td>
+            <td class="px-1 py-3 text-center">${getIcon(item.t2)}</td>
+            <td class="px-1 py-3 text-center">${getIcon(item.ns)}</td>
+            <td class="px-2 py-3 text-center">
+                <span class="px-2 py-1 ${corPlacar} border rounded font-black font-mono text-[9px] shadow-sm">${esc(item.placar)}</span>
+            </td>
+        </tr>`;
+    });
+    html += `</tbody></table></div>`;
+    return html;
+}
+
+function renderCardGrid(titulo, lc, lf, items) {
+    if(!items || !items.length) return '';
+    let html = `
+    <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
+        <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5">
+            <h4 class="text-[10px] font-black text-white uppercase tracking-wider">${titulo}</h4>
+            <div class="flex gap-10 pr-2">
+                <img src="${lc}" class="w-5 h-5 object-contain drop-shadow-md">
+                <img src="${lf}" class="w-5 h-5 object-contain drop-shadow-md">
+            </div>
+        </div>
+        <div class="p-2 space-y-1">
+    `;
+    items.forEach(i => {
+        let valCasa = esc(i.casa);
+        let valFora = esc(i.fora);
+        let colorCasa = valCasa.includes('(') ? 'text-blue-300' : 'text-gray-300';
+        let colorFora = valFora.includes('(') ? 'text-pink-300' : 'text-gray-300';
+        
+        html += `
+        <div class="grid grid-cols-[1.2fr_2fr_1.2fr] items-center p-1.5 hover:bg-[#2c2c2e] transition-colors rounded-xl">
+            <div class="text-center font-bold bg-[#121212] py-2 rounded-lg ${colorCasa} text-[11px] border border-white/5 shadow-sm">${valCasa}</div>
+            <div class="text-center text-[9px] font-black text-gray-500 uppercase tracking-wider px-2 leading-tight">${esc(i.metrica)}</div>
+            <div class="text-center font-bold bg-[#121212] py-2 rounded-lg ${colorFora} text-[11px] border border-white/5 shadow-sm">${valFora}</div>
+        </div>`;
+    });
+    html += `</div></div>`;
+    return html;
+}
+
+function renderCardGrid3Col(titulo, lc, lf, items) {
+    if(!items || !items.length) return '';
+    let html = `
+    <div class="p-2 space-y-1">
+    `;
+    items.forEach(i => {
+        html += `
+        <div class="flex justify-between items-center p-2 hover:bg-[#2c2c2e] transition-colors rounded-xl border border-white/5 bg-[#121212]">
+            <div class="w-[30%] text-left text-[9px] font-black text-gray-400 uppercase tracking-wider">${esc(i.metrica)}</div>
+            <div class="flex-1 flex justify-between gap-2 px-2">
+                <div class="flex-1 text-center font-bold bg-[#1c1c1e] py-1.5 rounded text-blue-300 text-[10px] border border-white/5">${esc(i.casa)}</div>
+                <div class="flex-1 text-center font-bold bg-[#1c1c1e] py-1.5 rounded text-pink-300 text-[10px] border border-white/5">${esc(i.fora)}</div>
+                <div class="flex-1 text-center font-bold bg-[#1c1c1e] py-1.5 rounded text-gray-300 text-[10px] border border-white/5">${esc(i.media || '-')}</div>
+            </div>
+        </div>`;
+    });
+    html += `</div>`;
+    return html;
+}
+
+function renderRelogio(titulo, items) {
+    const relogios = items.filter(x => x.tipo === 'relogio');
+    if(!relogios.length) return '';
+    
+    let html = `
+    <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
+        <div class="bg-[#2c2c2e] p-3 border-b border-white/5 flex items-center justify-between">
+            <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">⏱️</span> ${titulo}</h4>
+        </div>
+        <div class="p-3">
+            <div class="flex justify-between text-[9px] text-gray-500 font-black uppercase tracking-wider pb-2 border-b border-white/5 px-2">
+                <span class="w-[20%] text-center">Tempo</span>
+                <span class="w-[15%] text-center">M</span>
+                <span class="w-[15%] text-center">S</span>
+                <span class="w-[25%] text-center text-green-400">Marcado</span>
+                <span class="w-[25%] text-center text-red-400">Sofrido</span>
+            </div>
+            <div class="space-y-1 mt-2">`;
+            
+    relogios.forEach(r => {
+         html += `
+         <div class="flex justify-between items-center bg-[#121212] p-2 rounded-lg border border-white/5 hover:bg-[#2c2c2e] transition-colors">
+             <span class="w-[20%] text-center font-mono text-[10px] font-bold text-gray-300">${r.tempo}</span>
+             <span class="w-[15%] text-center font-mono text-[10px] font-bold text-gray-400">${r.m}</span>
+             <span class="w-[15%] text-center font-mono text-[10px] font-bold text-gray-400">${r.s}</span>
+             <span class="w-[25%] text-center font-mono text-[10px] font-black text-green-400 bg-green-500/10 py-1 rounded">${r.marcado}</span>
+             <span class="w-[25%] text-center font-mono text-[10px] font-black text-red-400 bg-red-500/10 py-1 rounded">${r.sofrido}</span>
+         </div>`;
+    });
+    html += `</div></div></div>`;
+    return html;
+}
+
+function renderCardComSeparador(titulo, icon, lc, lf, grupo1, grupo2) {
+    if(!grupo1.length && !grupo2.length) return '';
+    let html = `
+    <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
+        <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5">
+            <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">${icon}</span> ${titulo}</h4>
+            <div class="flex gap-8 pr-2">
+                <img src="${lc}" class="w-5 h-5 object-contain drop-shadow-md">
+                <img src="${lf}" class="w-5 h-5 object-contain drop-shadow-md">
+            </div>
+        </div>
+        <div class="p-2 space-y-1">`;
+        
+    const renderRow = (i) => {
+        let valCasa = esc(i.casa);
+        let valFora = esc(i.fora);
+        let colorCasa = valCasa.includes('(') ? 'text-blue-300' : 'text-gray-300';
+        let colorFora = valFora.includes('(') ? 'text-pink-300' : 'text-gray-300';
+        return `
+        <div class="grid grid-cols-[1.2fr_2fr_1.2fr] items-center p-1.5 hover:bg-[#2c2c2e] transition-colors rounded-xl">
+            <div class="text-center font-bold bg-[#121212] py-2 rounded-lg ${colorCasa} text-[11px] border border-white/5 shadow-sm">${valCasa}</div>
+            <div class="text-center text-[9px] font-black text-gray-400 uppercase tracking-wider px-2 leading-tight">${esc(i.metrica)}</div>
+            <div class="text-center font-bold bg-[#121212] py-2 rounded-lg ${colorFora} text-[11px] border border-white/5 shadow-sm">${valFora}</div>
+        </div>`;
+    };
+        
+    grupo1.forEach(i => html += renderRow(i));
+    
+    if(grupo2.length) {
+        html += `
+        <div class="bg-[#121212] rounded-lg mt-3 mb-2 p-1.5 border border-white/5 flex items-center gap-2 justify-center shadow-inner">
+            <span class="text-gray-500 text-xs">⏱️</span> 
+            <span class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Resultado aos 90 minutos</span>
+        </div>`;
+        grupo2.forEach(i => html += renderRow(i));
+    }
+    
+    html += `</div></div>`;
+    return html;
+}
+
+function getTrendIcon(text, mandante, visitante, lc, lf) {
+    const t = text.toUpperCase();
+    if(t.includes(mandante.toUpperCase())) return `<img src="${lc}" class="w-4 h-4 object-contain inline-block mr-1.5">`;
+    if(t.includes(visitante.toUpperCase())) return `<img src="${lf}" class="w-4 h-4 object-contain inline-block mr-1.5">`;
+    return `<img src="${lc}" class="w-4 h-4 object-contain inline-block mr-0.5"><img src="${lf}" class="w-4 h-4 object-contain inline-block mr-1.5">`;
+}
+
+function hasM(metrica, keys) {
+    const m = (metrica || "").toLowerCase().trim();
+    return keys.some(k => m.includes(k.toLowerCase()));
+}
+
+db.collection('jogos_ao_vivo').onSnapshot(snapshot => {
+  todosOsJogos = [];
+  snapshot.forEach(doc => todosOsJogos.push(doc.data()));
+  
+  if(renderDebounce) clearTimeout(renderDebounce);
+  renderDebounce = setTimeout(() => {
+      filtrarJogos();
+      if(!document.getElementById('view-tips').classList.contains('hidden-view')) renderizarTips();
+  }, 600); 
+});
+
+// Auto-atualiza os relógios do radar a cada 30 segundos
+setInterval(() => {
+  if (todosOsJogos.length > 0) filtrarJogos();
+}, 30000);
+
+db.collection('diario_operacoes').onSnapshot(snapshot => {
+  diarioOperacoes = [];
+  snapshot.forEach(doc => diarioOperacoes.push(doc.data()));
+  carregarFinanceiro();
+});
+
+db.collection('configuracoes').doc('motor_status').onSnapshot(doc => {
+  if(!doc.exists) return;
+  const data = doc.data();
+  const badge = document.getElementById('badgeStatusMotor');
+  const details = document.getElementById('txtStatusMotorDetails');
+  const timerEl = document.getElementById('timerMotorExecucao');
+  const liveBox = document.getElementById('txtStatusApiLive');
+
+  if(data.status === 'EXECUTANDO') {
+    badge.innerText = '🔴 EM EXECUÇÃO';
+    badge.className = 'bg-red-500 text-white px-3 py-1 rounded-full text-[9px] font-mono font-bold uppercase animate-pulse';
+    details.innerText = data.mensagem || 'Processando raspagem...';
+    if(timerInterval) clearInterval(timerInterval);
+    const inicioMs = data.inicioTimestamp || Date.now();
+    timerInterval = setInterval(() => {
+      const diffSegundos = Math.floor((Date.now() - inicioMs) / 1000);
+      const mins = String(Math.floor(diffSegundos / 60)).padStart(2, '0');
+      const segs = String(diffSegundos % 60).padStart(2, '0');
+      if(timerEl) timerEl.innerText = `${mins}:${segs}m`;
+    }, 1000);
+  } else {
+    if(timerInterval) clearInterval(timerInterval);
+    badge.innerText = '🟢 CONCLUÍDO';
+    badge.className = 'bg-green-600 text-white px-3 py-1 rounded-full text-[9px] font-mono font-bold uppercase';
+    details.innerText = data.mensagem || 'Motor em repouso.';
+    if(data.duracaoMinutos && timerEl) timerEl.innerText = `${data.duracaoMinutos} min`;
+  }
+
+  if(data.statusApiLive && liveBox) {
+    liveBox.innerText = data.statusApiLive;
+    if(data.statusApiLive.includes('Erro')) liveBox.className = "text-xs font-mono text-red-400 font-bold block";
+    else liveBox.className = "text-xs font-mono text-green-400 font-bold block";
+  }
+});
+
+function switchView(viewName) {
+  ['radar', 'tips', 'projetos', 'diario', 'gestao', 'config'].forEach(v => {
+    document.getElementById('view-' + v)?.classList.add('hidden-view');
+    document.getElementById('nav-' + v)?.classList.remove('bottom-nav-active');
+    document.getElementById('nav-' + v)?.classList.add('text-gray-500');
+  });
+  document.getElementById('view-' + viewName)?.classList.remove('hidden-view');
+  const activeBtn = document.getElementById('nav-' + viewName);
+  if(activeBtn) {
+    activeBtn.classList.add('bottom-nav-active');
+    activeBtn.classList.remove('text-gray-500');
+  }
+  if (viewName === 'tips') renderizarTips();
+  if (viewName === 'gestao') carregarFinanceiro();
+}
+
+function salvarConfigMotor() {
+  const id = document.getElementById('configTheoID').value;
+  const smToken = document.getElementById('configSportmonks').value;
+  const afKey = document.getElementById('configApiFutebol').value;
+  if(!id) return alert("Insira o ID!");
+
+  const timestamp = new Date().getTime();
+  const btn = document.getElementById('btnSalvarCockpit');
+  const originalText = btn.innerText;
+  btn.innerText = "DESPERTANDO...";
+  btn.classList.add('animate-pulse');
+
+  db.collection('configuracoes').doc('motor').set({
+    theo_token: id, sportmonks_token: smToken, apifutebol_key: afKey, forcar_leitura: timestamp
+  }, { merge: true }).then(() => {
+    setTimeout(() => {
+      btn.innerText = originalText;
+      btn.classList.remove('animate-pulse');
+      mostrarToast("Gatilho ativado!", false);
+    }, 15000);
+  });
+}
+
+function mudarDataPill(iso, btn, offset) {
+  dataSelecionadaISO = iso;
+  document.querySelectorAll('#scrollDatas button').forEach(b => {
+    b.className = 'px-4 py-2 rounded-full text-xs shrink-0 border bg-transparent text-gray-400 border-white/10';
+  });
+  btn.className = 'px-4 py-2 rounded-full text-xs shrink-0 border bg-blue-600 text-white font-bold border-blue-500 shadow-sm';
+  
+  const btnLive = document.getElementById('tab-ao_vivo');
+  const btnAseguir = document.getElementById('tab-a_seguir');
+  const btnFim = document.getElementById('tab-finalizados');
+  
+  if (offset < 0) { 
+      if(btnLive) btnLive.style.display = 'none';
+      if(btnAseguir) btnAseguir.style.display = 'none';
+      if(btnFim) btnFim.style.display = 'inline-flex';
+      setFiltroStatus('finalizados');
+  } else if (offset > 0) { 
+      if(btnLive) btnLive.style.display = 'none';
+      if(btnAseguir) btnAseguir.style.display = 'none';
+      if(btnFim) btnFim.style.display = 'none';
+      setFiltroStatus('todos');
+  } else { 
+      if(btnLive) btnLive.style.display = 'inline-flex';
+      if(btnAseguir) btnAseguir.style.display = 'inline-flex';
+      if(btnFim) btnFim.style.display = 'inline-flex';
+      setFiltroStatus('todos');
+  }
+  
+  if(!document.getElementById('view-tips').classList.contains('hidden-view')) {
+      renderizarTips();
+  }
+}
+
+function setFiltroStatus(status) {
+  statusFiltroAtual = status;
+  ['destaques', 'todos', 'favoritos', 'ao_vivo', 'a_seguir', 'finalizados'].forEach(id => {
+    const btn = document.getElementById('tab-' + id);
+    if (btn) {
+        if(id === 'destaques' && status === 'destaques') btn.className = 'px-4 py-1.5 rounded-full text-[10px] font-black bg-amber-500 text-black shrink-0 flex items-center gap-1 uppercase shadow-sm transition-all';
+        else if(id === 'destaques') btn.className = 'px-4 py-1.5 rounded-full text-[10px] font-black bg-white dark:bg-gray-800 text-amber-500 border border-amber-500/30 shrink-0 flex items-center gap-1 uppercase transition-all';
+        else btn.className = (id === status) ? 'px-4 py-1.5 rounded-full text-[10px] font-bold bg-blue-600 text-white shrink-0 uppercase shadow-sm transition-all' : 'px-4 py-1.5 rounded-full text-[10px] font-bold bg-gray-800 text-gray-400 border border-white/10 shrink-0 uppercase transition-all';
+    }
+  });
+  filtrarJogos();
+}
+
+function getMatchTimerAndStatus(j, now) {
+  const st = (j.status || '').toUpperCase();
+  if (['FT', 'FINALIZADA', 'FINALIZADO', 'ENCERRADO'].includes(st)) {
+    return {
+      isLive: false,
+      isFT: true,
+      isNS: false,
+      diffMinutes: 9999,
+      statusLabel: 'FINALIZADA',
+      statusBadge: '<span class="text-gray-500 font-bold text-[9px] uppercase tracking-wider">FINALIZADA</span>',
+      tagTempo: 'FT'
+    };
+  }
+
+  const horaStr = j.hora || '00:00';
+  const dataStr = j.dataJogo || now.toISOString().split('T')[0];
+  const [h, m] = horaStr.split(':').map(Number);
+  const [ano, mes, dia] = dataStr.split('-').map(Number);
+
+  if (isNaN(h) || isNaN(m) || isNaN(ano) || isNaN(mes) || isNaN(dia)) {
+    return {
+      isLive: false, isFT: false, isNS: true, diffMinutes: -9999,
+      statusLabel: horaStr, statusBadge: `<span class="text-gray-400 font-bold text-[9px]">${horaStr}</span>`, tagTempo: 'NS'
+    };
+  }
+
+  const startTime = new Date(ano, mes - 1, dia, h, m);
+  const diffMs = now.getTime() - startTime.getTime();
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+  const isOfficialLive = ['LIVE', 'HT', '1H', '2H', 'EM ANDAMENTO', 'AO VIVO'].includes(st);
+
+  if (isOfficialLive || (diffMinutes >= 0 && diffMinutes <= 115)) {
+    let minText = j.minutoAoVivo || "";
+    let tagTempo = "1T";
+    let isHT = st === 'HT' || (diffMinutes > 45 && diffMinutes <= 60);
+
+    if (!minText) {
+      if (diffMinutes <= 45) {
+        const min = diffMinutes === 0 ? 1 : diffMinutes;
+        minText = `1T ${min}'`;
+        tagTempo = "1T";
+      } else if (diffMinutes > 45 && diffMinutes <= 60) {
+        const htMin = diffMinutes - 45;
+        minText = `HT (${htMin}m)`;
+        tagTempo = "HT";
+      } else if (diffMinutes > 60 && diffMinutes <= 105) {
+        const min2 = 45 + (diffMinutes - 60);
+        minText = `2T ${min2}'`;
+        tagTempo = "2T";
+      } else {
+        minText = `2T 90+'`;
+        tagTempo = "2T";
+      }
+    }
+
+    const badgeColor = isHT ? 'text-amber-400' : 'text-red-500';
+    const dotColor = isHT ? 'bg-amber-400 animate-pulse' : 'bg-red-500 animate-ping';
+
+    return {
+      isLive: true,
+      isFT: false,
+      isNS: false,
+      diffMinutes,
+      statusLabel: minText,
+      statusBadge: `<div class="flex items-center gap-1.5 ${badgeColor} font-black text-[10px] uppercase tracking-wider"><span class="w-2 h-2 rounded-full ${dotColor}"></span>${minText}</div>`,
+      tagTempo
+    };
+  } else if (diffMinutes < 0) {
+    return {
+      isLive: false,
+      isFT: false,
+      isNS: true,
+      diffMinutes,
+      statusLabel: horaStr,
+      statusBadge: `<span class="text-gray-400 font-bold text-[9px]">${horaStr}</span>`,
+      tagTempo: 'NS'
+    };
+  } else {
+    return {
+      isLive: false,
+      isFT: true,
+      isNS: false,
+      diffMinutes,
+      statusLabel: 'FINALIZADA',
+      statusBadge: '<span class="text-gray-500 font-bold text-[9px] uppercase tracking-wider">FINALIZADA</span>',
+      tagTempo: 'FT'
+    };
+  }
+}
+
+function filtrarJogos() {
+  const term = document.getElementById('searchRadar')?.value.toLowerCase().trim() || '';
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  
+  let filtrados = todosOsJogos.filter(j => {
+    if (dataSelecionadaISO && j.dataJogo !== dataSelecionadaISO) return false;
+    
+    const info = getMatchTimerAndStatus(j, now);
+    
+    if (statusFiltroAtual === 'destaques' && !j.isDestaque) return false;
+    
+    if (statusFiltroAtual === 'ao_vivo' && !info.isLive) return false;
+    
+    if (statusFiltroAtual === 'a_seguir') {
+      if (info.isFT || info.isLive) return false;
+      if (info.diffMinutes < -180 || info.diffMinutes > 0) return false;
+    }
+    
+    if (statusFiltroAtual === 'finalizados' && !info.isFT) return false;
+    if (statusFiltroAtual === 'favoritos' && !favoritosIds.includes(String(j.id))) return false;
+    if (term && !(j.mandante + ' ' + j.visitante + ' ' + j.competicao).toLowerCase().includes(term)) return false;
+    
+    return true;
+  });
+  
+  filtrados.sort((a, b) => {
+    const horaA = a.hora || "00:00";
+    const horaB = b.hora || "00:00";
+    return horaA.localeCompare(horaB);
+  });
+  
+  renderizarAgrupamento(filtrados);
+}
+
+function toggleFavorito(idJogo) {
+  const strId = String(idJogo);
+  if (favoritosIds.includes(strId)) favoritosIds = favoritosIds.filter(f => f !== strId);
+  else favoritosIds.push(strId);
+  localStorage.setItem('cr7_favoritos', JSON.stringify(favoritosIds));
+  filtrarJogos(); 
+}
+
+function toggleFixar(idJogo) {
+  const strId = String(idJogo);
+  if (fixadosIds.includes(strId)) fixadosIds = fixadosIds.filter(f => f !== strId);
+  else fixadosIds.push(strId);
+  localStorage.setItem('cr7_fixados', JSON.stringify(fixadosIds));
+  filtrarJogos(); 
+}
+
+function renderizarAgrupamento(jogos) {
+  const c = document.getElementById('listaJogos');
+  document.getElementById('totalJogosDia').innerText = jogos.length;
+
+  if (jogos.length === 0) {
+    c.innerHTML = '<div class="text-center py-12 text-gray-500 text-xs">Nenhum jogo nesta data/filtro.</div>';
+    return;
+  }
+
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  window.matchDataBank = {};
+
+  const jogosFixados = jogos.filter(j => fixadosIds.includes(String(j.id)));
+  const jogosNormais = jogos.filter(j => !fixadosIds.includes(String(j.id)));
+
+  let html = '';
+
+  const renderCard = (j, isFixed) => {
+    const sId = cleanString(j.id || j.mandante + j.visitante);
+    const isFav = favoritosIds.includes(String(j.id));
+    const isDest = j.isDestaque ? '<span class="bg-amber-500/20 text-amber-500 border border-amber-500/30 px-2 py-0.5 rounded text-[8px] uppercase font-black ml-2 shadow-sm">⚡ Destaque</span>' : '';
+    
+    const info = getMatchTimerAndStatus(j, now);
+
+    let pkt = {};
+    try { pkt = JSON.parse(j.eventosJSON || '{}'); } catch(e){}
+    window.matchDataBank[sId] = {
+      id: j.id, m: j.mandante, v: j.visitante, lc: j.logoCasa, lf: j.logoFora,
+      json: pkt, status: j.status, gc: j.golsCasa, gf: j.golsFora,
+      odds: { c: j.oddCasa, e: j.oddEmpate, f: j.oddFora },
+      pais: j.pais, competicao: j.competicao, hora: j.hora, dataJogo: j.dataJogo
+    };
+
+    const autorGol = j.ultimoGol ? `<span class="absolute -bottom-4 bg-green-500 text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow-lg truncate max-w-[90px] text-center border border-green-400">⚽ ${j.ultimoGol}</span>` : '';
+
+    return `
+    <div class="bg-[#1c1c1e] p-4 rounded-3xl shadow-lg border border-white/5 ${isFixed ? 'border-l-4 border-l-blue-500 shadow-blue-900/30' : ''} relative mb-4">
+      
+      <div class="absolute top-4 left-4 flex gap-2 z-10">
+          <button onclick="toggleFixar('${j.id}')" class="text-[14px] ${isFixed ? 'text-blue-500 font-bold scale-110' : 'text-gray-600 grayscale'} transition-all hover:scale-110" title="${isFixed ? 'Desfixar' : 'Fixar no topo'}">📌</button>
+          <button onclick="toggleFavorito('${j.id}')" class="text-[14px] ${isFav ? 'text-yellow-400 font-bold' : 'text-gray-600 grayscale'} transition-all hover:scale-110">⭐</button>
+          ${isDest}
+      </div>
+      
+      <div class="absolute top-4 right-4 z-10">
+        ${info.statusBadge}
+      </div>
+
+      <div class="flex items-center justify-between mt-6 px-4 relative">
+          <div class="flex flex-col items-center gap-2 w-1/3">
+              <img src="${j.logoCasa}" class="w-14 h-14 object-contain drop-shadow-lg">
+              <span class="text-[12px] font-bold text-center text-white leading-tight h-8 flex items-center justify-center">${esc(j.mandante)}</span>
+              <span class="px-4 py-1.5 bg-[#121212] text-white rounded-xl text-[12px] font-mono font-black border border-white/5 shadow-sm mt-1">${j.oddCasa || '-'}</span>
+          </div>
+          
+          <div class="flex flex-col items-center justify-center w-1/3 z-10 relative">
+              ${info.isLive || info.isFT ? 
+                `<div class="bg-black/50 text-white font-mono font-black text-2xl px-4 py-1.5 rounded-2xl border border-white/10 shadow-inner">${j.golsCasa ?? 0} - ${j.golsFora ?? 0}</div>
+                 <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${j.hora || '00:00'}</span>` 
+              : `<span class="text-3xl font-black font-mono text-white drop-shadow-md tracking-tighter">${j.hora || '00:00'}</span>`
+              }
+              ${autorGol}
+              <span class="text-[9px] text-gray-500 font-bold mt-2 tracking-widest uppercase">${j.dataJogo}</span>
+          </div>
+
+          <div class="flex flex-col items-center gap-2 w-1/3">
+              <img src="${j.logoFora}" class="w-14 h-14 object-contain drop-shadow-lg">
+              <span class="text-[12px] font-bold text-center text-white leading-tight h-8 flex items-center justify-center">${esc(j.visitante)}</span>
+              <span class="px-4 py-1.5 bg-[#121212] text-white rounded-xl text-[12px] font-mono font-black border border-white/5 shadow-sm mt-1">${j.oddFora || '-'}</span>
+          </div>
+      </div>
+
+      <div class="flex gap-2 mt-6 pt-4 border-t border-white/5">
+        <button onclick="abrirModalBank('${sId}')" class="flex-1 py-3 rounded-2xl bg-[#2c2c2e] hover:bg-gray-700 text-blue-400 font-black text-[10px] uppercase tracking-wider shadow-sm transition-colors border border-white/5 flex items-center justify-center gap-2">📊 Raio-X Completo</button>
+        <button onclick="prepararTradeDirect('${esc(j.mandante)} x ${esc(j.visitante)}', '${esc(j.competicao)}')" class="bg-green-600/20 border border-green-500/40 text-green-400 px-6 py-3 rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center text-[14px]" title="Registrar no Trade">✅</button>
+      </div>
+    </div>`;
+  };
+
+  if (jogosFixados.length > 0) {
+    html += `
+    <div class="mb-6 bg-[#121212] p-3.5 rounded-3xl border border-blue-500/40 shadow-2xl">
+      <div class="flex items-center justify-between mb-3 px-2">
+        <div class="flex items-center gap-2">
+          <span class="text-base">📌</span>
+          <h3 class="text-[11px] font-black uppercase text-blue-400 tracking-wider">Partidas Fixadas (${jogosFixados.length})</h3>
+        </div>
+      </div>
+      <div class="space-y-1">`;
+      
+    jogosFixados.forEach(j => {
+      html += renderCard(j, true);
+    });
+
+    html += `</div></div>`;
+  }
+
+  if (jogosNormais.length > 0) {
+    const ligasMap = {};
+    jogosNormais.forEach(j => {
+      const chaveAgrupamento = j.pais + " - " + j.competicao;
+      if (!ligasMap[chaveAgrupamento]) ligasMap[chaveAgrupamento] = { pais: j.pais, competicao: j.competicao, list: [] };
+      ligasMap[chaveAgrupamento].list.push(j);
+    });
+
+    const ligasOrdenadas = Object.keys(ligasMap).sort((a, b) => a.localeCompare(b));
+
+    ligasOrdenadas.forEach((chave, index) => {
+      const grupo = ligasMap[chave];
+      const pillClass = getCountryPillClass(grupo.pais);
+      const idLiga = cleanString(chave);
+      
+      html += `<div class="mb-4">`;
+      html += `<div class="flex justify-between items-center bg-[#1c1c1e] p-3 rounded-2xl border border-white/10 cursor-pointer shadow-sm" onclick="document.getElementById('lg-${idLiga}').classList.toggle('hidden')">`;
+      html += `<div class="flex items-center gap-2 pl-1"><span class="px-2.5 py-1 rounded-full text-[9px] uppercase font-black tracking-wider ${pillClass}">${esc(grupo.pais)}</span><span class="text-[10px] font-black uppercase text-white tracking-tight">${esc(grupo.competicao)}</span></div>`;
+      html += `<span class="text-xs font-mono font-bold text-blue-500 pr-1">${grupo.list.length} ▾</span></div>`;
+      html += `<div id="lg-${idLiga}" class="pt-2 space-y-2 ${index === 0 ? '' : 'hidden'}">`;
+
+      grupo.list.forEach(j => {
+        html += renderCard(j, false);
+      });
+
+      html += `</div></div>`;
+    });
+  }
+
+  c.innerHTML = html;
+}
+
+function abrirModalBank(sId) {
+  const data = window.matchDataBank[sId];
+  if (!data) return;
+
+  window.activeModalData = data;
+  document.getElementById('modalTitle').innerText = `${data.m} x ${data.v}`;
+  modalSubTabAtual = 'geral';
+  renderizarConteudoModal();
+
+  document.getElementById('infoModal').classList.remove('hidden');
+  document.getElementById('infoModal').classList.add('flex');
+}
+
+function trocarSubTabModal(tab) {
+  modalSubTabAtual = tab;
+  renderizarConteudoModal();
+}
+
+function renderizarConteudoModal() {
+  const data = window.activeModalData;
+  if(!data) return;
+
+  const objJson = data.json?.principais_json || { confronto: [], tendencias: [], mercados: [] };
+  const objRaiox = data.json?.raiox_json || {}; 
+  const rDesempenho = objRaiox.desempenho || [];
+  const rGols = objRaiox.gols || [];
+  
+  const rH2H_casa = objRaiox.h2h_casa || [];
+  const rH2H_fora = objRaiox.h2h_fora || [];
+  const rH2H_ambos = objRaiox.h2h || [];
+
+  const navAbas = `
+  <div class="flex gap-2 overflow-x-auto no-scrollbar pb-4 mb-2">
+    <button onclick="trocarSubTabModal('geral')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'geral' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">📊 Resumo</button>
+    <button onclick="trocarSubTabModal('h2h')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'h2h' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⚔️ H2H</button>
+    <button onclick="trocarSubTabModal('desempenho')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'desempenho' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⏱️ Desempenho</button>
+    <button onclick="trocarSubTabModal('gols')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'gols' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⚽ Gols</button>
+    <button onclick="trocarSubTabModal('destaques')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'destaques' ? 'bg-amber-500 text-black shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⭐ Destaques</button>
+  </div>`;
+
+  let corpo = '';
+  
+  if (modalSubTabAtual === 'geral') {
+    corpo = `
+    <div class="grid grid-cols-2 gap-3 mt-2">
+        <button onclick="trocarSubTabModal('h2h')" class="bg-[#1c1c1e] p-6 rounded-3xl flex flex-col items-center justify-center border border-blue-500/20 shadow-lg hover:bg-[#2c2c2e] active:scale-95 transition-all">
+            <span class="text-4xl mb-3 drop-shadow-md">⚔️</span>
+            <span class="text-[11px] font-black uppercase text-blue-400 tracking-widest text-center">Confrontos<br>Diretos</span>
+        </button>
+        <button onclick="trocarSubTabModal('desempenho')" class="bg-[#1c1c1e] p-6 rounded-3xl flex flex-col items-center justify-center border border-purple-500/20 shadow-lg hover:bg-[#2c2c2e] active:scale-95 transition-all">
+            <span class="text-4xl mb-3 drop-shadow-md">⏱️</span>
+            <span class="text-[11px] font-black uppercase text-purple-400 tracking-widest text-center">Forma &<br>Desempenho</span>
+        </button>
+        <button onclick="trocarSubTabModal('gols')" class="bg-[#1c1c1e] p-6 rounded-3xl flex flex-col items-center justify-center border border-green-500/20 shadow-lg hover:bg-[#2c2c2e] active:scale-95 transition-all">
+            <span class="text-4xl mb-3 drop-shadow-md">⚽</span>
+            <span class="text-[11px] font-black uppercase text-green-400 tracking-widest text-center">Radares<br>de Gols</span>
+        </button>
+        <button onclick="trocarSubTabModal('destaques')" class="bg-[#1c1c1e] p-6 rounded-3xl flex flex-col items-center justify-center border border-amber-500/20 shadow-lg hover:bg-[#2c2c2e] active:scale-95 transition-all">
+            <span class="text-4xl mb-3 drop-shadow-md">⭐</span>
+            <span class="text-[11px] font-black uppercase text-amber-500 tracking-widest text-center">Destaques<br>Inteligência</span>
+        </button>
+    </div>`;
+  } 
+  else if (modalSubTabAtual === 'h2h') {
+    // Ordem oficial dos botões H2H: [Mandante] - [H2H] - [Visitante]
+    corpo = `
+    <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 overflow-hidden shadow-lg p-3 mb-4">
+        <div class="flex gap-2 bg-[#121212] p-1.5 rounded-2xl mb-3 border border-white/5">
+            <button onclick="window.toggleUiTab(this, 'h2h-view', 'h2h-casa')" class="flex-1 bg-[#3a3a3c] text-white p-2 rounded-xl flex items-center justify-center gap-1 shadow-sm transition-all"><img src="${data.lc}" class="w-5 h-5 object-contain"><span class="text-[10px] font-bold truncate max-w-[70px]">${esc(data.m)}</span></button>
+            <button onclick="window.toggleUiTab(this, 'h2h-view', 'h2h-ambos')" class="flex-1 text-gray-400 p-2 rounded-xl flex items-center justify-center text-[10px] font-black uppercase tracking-widest transition-all hover:bg-[#2c2c2e]">H2H</button>
+            <button onclick="window.toggleUiTab(this, 'h2h-view', 'h2h-fora')" class="flex-1 text-gray-400 p-2 rounded-xl flex items-center justify-center gap-1 transition-all hover:bg-[#2c2c2e]"><img src="${data.lf}" class="w-5 h-5 object-contain"><span class="text-[10px] font-bold truncate max-w-[70px]">${esc(data.v)}</span></button>
+        </div>
+        <div id="h2h-casa" class="h2h-view">
+            ${renderH2HList(rH2H_casa, data.m)}
+        </div>
+        <div id="h2h-ambos" class="h2h-view hidden">
+            ${renderH2HList(rH2H_ambos, '')}
+        </div>
+        <div id="h2h-fora" class="h2h-view hidden">
+            ${renderH2HList(rH2H_fora, data.v)}
+        </div>
+    </div>`;
+  } 
+  else if (modalSubTabAtual === 'desempenho') {
+    let pAproveitamento=[], pPrimeiroGol=[], pMarcouAcoes=[], pMarcouResult=[], pSofreuAcoes=[], pSofreuResult=[];
+    let sessaoAtual = 'aproveitamento';
+    
+    rDesempenho.forEach(x => {
+        const m = (x.metrica || "").toLowerCase().trim();
+        if (m.includes('total de jogos') || m.includes('pontos por jogo') || m.includes('posse de bola') || m.includes('posição') || m.includes('posicao')) sessaoAtual = 'aproveitamento';
+        else if (m.includes('marcou primeiro') || m.includes('sofreu primeiro') || m.includes('sem gols')) sessaoAtual = 'primeiroGol';
+        else if (m.includes('ampliou o placar') || m.includes('sofreu empate')) sessaoAtual = 'marcouAcoes';
+        else if (m.includes('venceu após abrir') || m.includes('empatou após abrir') || m.includes('perdeu após abrir')) sessaoAtual = 'marcouResult';
+        else if (m.includes('buscou empate') || m.includes('sofreu novamente')) sessaoAtual = 'sofreuAcoes';
+        else if (m.includes('virou e venceu') || m.includes('empatou após sair') || m.includes('perdeu após sair')) sessaoAtual = 'sofreuResult';
+        else if (m.includes('não houve mais gols')) {
+            if (sessaoAtual === 'marcouAcoes' || sessaoAtual === 'marcouResult') pMarcouAcoes.push(x);
+            else if (sessaoAtual === 'sofreuAcoes' || sessaoAtual === 'sofreuResult') pSofreuAcoes.push(x);
+            return;
+        }
+        
+        if (sessaoAtual === 'aproveitamento' && hasM(m, ['total', 'pontos', 'posição', 'posicao', 'venceu', 'perdeu', 'empatou', 'posse', 'marcou gol', 'sofreu gol', 'gols marcados', 'gols sofridos', 'ambas marcam'])) pAproveitamento.push(x);
+        else if (sessaoAtual === 'primeiroGol') pPrimeiroGol.push(x);
+        else if (sessaoAtual === 'marcouAcoes') pMarcouAcoes.push(x);
+        else if (sessaoAtual === 'marcouResult') pMarcouResult.push(x);
+        else if (sessaoAtual === 'sofreuAcoes') pSofreuAcoes.push(x);
+        else if (sessaoAtual === 'sofreuResult') pSofreuResult.push(x);
+    });
+
+    corpo = `
+        ${renderCardGrid('📈 Aproveitamento', data.lc, data.lf, pAproveitamento)}
+        ${renderCardGrid('🏁 Primeiro Gol', data.lc, data.lf, pPrimeiroGol)}
+        ${renderCardComSeparador('Quando Marcou Primeiro', '🟢', data.lc, data.lf, pMarcouAcoes, pMarcouResult)}
+        ${renderCardComSeparador('Quando Sofreu Primeiro', '🔴', data.lc, data.lf, pSofreuAcoes, pSofreuResult)}
+    `;
+  } 
+  else if (modalSubTabAtual === 'gols') {
+    const dNormal = rGols.filter(x => x.tipo !== 'relogio');
+    
+    const itemsGolsBase = dNormal.filter(x => ['Gols Marcados', 'Gols Sofridos', 'Média Gols Marcados', 'Média Gols Sofridos', 'Média total de Gols'].includes(x.metrica));
+    const itemsOvers = dNormal.filter(x => x.metrica && x.metrica.includes('Over') && x.media);
+    const itemsUnders = dNormal.filter(x => x.metrica && x.metrica.includes('Under') && x.media);
+    const itemsFinalizacoes = dNormal.filter(x => ['Chutes por Jogo', 'Chutes no Alvo', 'Chutes para Marcar', 'Chutes no Alvo para Marcar', 'xG - A Favor', 'xG - Contra'].includes(x.metrica));
+
+    corpo = `
+    ${renderCardGrid('⚽ Gols Gerais', data.lc, data.lf, itemsGolsBase)}
+    
+    <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
+        <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5">
+            <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">🎯</span> Total de Gols</h4>
+            <div class="flex bg-[#121212] rounded-lg p-1 border border-white/5">
+                <button onclick="window.toggleUiTab(this, 'gols-view', 'gols-over')" class="px-3 py-1.5 text-[9px] rounded-md bg-[#3a3a3c] text-white font-bold shadow-sm transition-all uppercase tracking-wider">Over Gols</button>
+                <button onclick="window.toggleUiTab(this, 'gols-view', 'gols-under')" class="px-3 py-1.5 text-[9px] rounded-md text-gray-500 hover:text-gray-300 font-bold transition-all uppercase tracking-wider">Under Gols</button>
+            </div>
+        </div>
+        <div id="gols-over" class="gols-view">
+            ${renderCardGrid3Col('', data.lc, data.lf, itemsOvers)}
+        </div>
+        <div id="gols-under" class="gols-view hidden">
+            ${renderCardGrid3Col('', data.lc, data.lf, itemsUnders)}
+        </div>
+    </div>
+    
+    ${renderRelogio('Relógio de Gols', rGols)}
+
+    ${renderCardGrid('🎯 Finalizações', data.lc, data.lf, itemsFinalizacoes)}
+    `;
+  } 
+  else if (modalSubTabAtual === 'destaques') {
+    const mercadosRelevantes = ['Resultado', '0.5 Gols HT', 'Over 2.5 Gols'];
+    const mercadosFiltrados = objJson.mercados.filter(m => mercadosRelevantes.some(rm => m.nome.includes(rm)));
+    const confrontosFiltrados = objJson.confronto.filter(c => !isCardOrCornerRule(c.metrica));
+    const tendenciasFiltradas = objJson.tendencias.filter(t => !isCardOrCornerRule(t.regra));
+
+    corpo = `
+    <div class="space-y-4">
+      ${confrontosFiltrados.length ? `
+      <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 overflow-hidden shadow-lg">
+        <div class="p-3 bg-[#2c2c2e] border-b border-white/5 flex items-center gap-2">
+          <span class="text-sm">⚔️</span> <h4 class="text-[10px] font-black text-white uppercase tracking-widest">Confronto Direto</h4>
+        </div>
+        <div class="p-3 space-y-1.5">
+          ${confrontosFiltrados.map(c => `
+            <div class="flex justify-between items-center bg-[#121212] p-3 rounded-xl text-xs shadow-sm border border-white/5">
+              <div class="flex items-center text-gray-300 font-bold">${getTrendIcon(c.metrica, data.m, data.v, data.lc, data.lf)} <span class="ml-1.5">${c.metrica.replace(data.m + ' - ', '').replace(data.v + ' - ', '').replace('-', '').trim()}</span></div>
+              <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-lg font-black text-[10px] border border-green-500/30">${c.valor}</span>
+            </div>`).join('')}
+        </div>
+      </div>` : ''}
+
+      ${tendenciasFiltradas.length ? `
+      <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 overflow-hidden shadow-lg">
+        <div class="p-3 bg-[#2c2c2e] border-b border-white/5 flex justify-between items-center">
+           <div class="flex items-center gap-2"><span class="text-sm">📈</span> <h4 class="text-[10px] font-black text-white uppercase tracking-widest">Tendências Recentes</h4></div>
+        </div>
+        <div class="p-3 space-y-1.5">
+          ${tendenciasFiltradas.map(t => `
+            <div class="flex justify-between items-center bg-[#121212] p-3 rounded-xl text-xs shadow-sm border border-white/5">
+              <div class="flex items-center text-gray-300 font-medium">${getTrendIcon(t.regra, data.m, data.v, data.lc, data.lf)} <span class="ml-1.5">${t.regra.replace(data.m + ' - ', '').replace(data.v + ' - ', '').replace('-', '').trim()}</span></div>
+              <span class="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-lg font-mono font-bold text-[10px] border border-amber-500/30 shadow-sm">${t.rate}</span>
+            </div>`).join('')}
+        </div>
+      </div>` : ''}
+
+      ${mercadosFiltrados.length ? `
+      <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 overflow-hidden shadow-lg">
+        <div class="p-3 bg-[#2c2c2e] border-b border-white/5 flex items-center gap-2">
+          <span class="text-sm">🎯</span> <h4 class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Principais Mercados</h4>
+        </div>
+        <div class="p-3 space-y-1.5">
+          ${mercadosFiltrados.map(m => `
+            <div class="flex justify-between items-center bg-[#121212] p-3 rounded-xl text-xs shadow-sm border border-white/5">
+              <span class="text-gray-300 font-bold flex-1">${m.nome}</span>
+              <div class="flex gap-2">
+                <span class="bg-[#2c2c2e] text-blue-400 px-3 py-1.5 rounded-lg font-mono font-black text-[10px] border border-white/10 shadow-sm min-w-[50px] text-center">${m.man}</span>
+                <span class="bg-[#2c2c2e] text-pink-400 px-3 py-1.5 rounded-lg font-mono font-black text-[10px] border border-white/10 shadow-sm min-w-[50px] text-center">${m.vis}</span>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>`;
+  }
+
+  document.getElementById('modalBody').innerHTML = navAbas + corpo;
+}
+
+function fecharModal(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('infoModal').classList.add('hidden');
+  document.getElementById('infoModal').classList.remove('flex');
+}
+
+function switchTipsTab(tab) {
+  tipsTabAtual = tab;
+  const inativo = 'px-3 py-1 bg-transparent text-gray-600 dark:text-gray-400 rounded-full text-[10px] font-bold transition-all';
+  document.getElementById('btnTipsAtivas').className = tab === 'ativas' ? 'px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-bold shadow-sm transition-all' : inativo;
+  document.getElementById('btnTipsHistorico').className = tab === 'chances' ? 'px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-bold shadow-sm transition-all' : inativo;
+  renderizarTips();
+}
+
+async function forcarTesteMotor() {
+    try {
+        await db.collection("configuracoes").doc("motor").set({
+            forcar_leitura: Date.now()
+        }, { merge: true });
+        
+        alert("🚀 Disparo enviado! Olhe o seu terminal, o motor deve começar a rodar imediatamente.");
+    } catch (error) {
+        alert("Erro ao disparar motor: " + error.message);
+    }
+}
+
+async function chamarGeminiAPI(sId) {
+  const data = window.matchDataBank[sId];
+  if(!data) return;
+
+  const apiKey = document.getElementById('configGeminiKey')?.value.trim() || localStorage.getItem('cr7_gemini_key') || '';
+  if(!apiKey) {
+    alert("Insira a sua chave API do Google Gemini na Sala de Máquinas (⚙️)!");
+    switchView('config');
+    return;
+  }
+  localStorage.setItem('cr7_gemini_key', apiKey);
+
+  const box = document.getElementById(`ai-box-${sId}`);
+  if(box) box.innerHTML = `<span class="text-purple-400 font-bold animate-pulse text-[11px]">🤖 Gemini IA analisando dados do confronto...</span>`;
+
+  const promptText = `Você é um analista quantitativo de trading esportivo. Analise o confronto: ${data.m} x ${data.v} (${data.pais} - ${data.competicao}).
+Estatísticas JSON do jogo: ${JSON.stringify(data.json)}.
+Traga estritamente em português em formato simples:
+1) Diagnóstico Tático: (2 frases curtas sobre tendência de gols e posse)
+2) Método Recomendado: (Apenas 1 mercado entre: Over 0.5 HT, Over 2.5 FT, Ambas Marcam, Back Favorito)
+3) Grau de Risco: (Baixo, Médio ou Alto)`;
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+    });
+
+    const resData = await response.json();
+
+    if (resData.error) {
+      if(box) box.innerHTML = `<span class="text-red-400 font-bold text-[10px]">❌ Erro API Gemini: ${resData.error.message || JSON.stringify(resData.error)}</span>`;
+      return;
+    }
+    const aiText = resData.candidates?.[0]?.content?.parts?.[0]?.text || "Nenhum diagnóstico retornado.";
+
+    if(box) {
+      box.innerHTML = `
+      <b class="text-[11px] block mb-1 text-purple-400 uppercase tracking-widest">🤖 Diagnóstico Google Gemini IA:</b>
+      <span class="text-[10px] text-gray-200 leading-relaxed block mt-1">${aiText.replace(/\n/g, '<br>')}</span>`;
+    }
+  } catch(e) {
+    if(box) box.innerHTML = `<span class="text-red-400 text-[10px]">❌ Erro na requisição: ${e.message}</span>`;
+  }
+}
+
+function renderizarTips() {
+  const container = document.getElementById('listaTips');
+  if (!container) return;
+
+  const requiredRate = (tipsTabAtual === 'chances') ? 0.80 : 0.70;
+
+  let filtrados = todosOsJogos.filter(j => {
+    if (dataSelecionadaISO && j.dataJogo !== dataSelecionadaISO) return false;
+    const opp = extrairOportunidadeJogo(j, requiredRate);
+    return opp !== null;
+  });
+
+  const term = document.getElementById('searchTips')?.value.toLowerCase().trim() || '';
+  if (term) filtrados = filtrados.filter(j => (j.mandante + j.visitante + j.competicao).toLowerCase().includes(term));
+
+  let cntGreens = 0;
+  let cntReds = 0;
+
+  filtrados.forEach(j => {
+    if (j.status === 'FT') {
+      const opp = extrairOportunidadeJogo(j, requiredRate);
+      const metodoRule = opp ? opp.metodo : "OVER LIMITE FT";
+      const foiGreen = validarGreenRed(metodoRule, j.golsCasa, j.golsFora);
+      if (foiGreen) cntGreens++;
+      else cntReds++;
+    }
+  });
+
+  const totalFinalizados = cntGreens + cntReds;
+  const assertividade = totalFinalizados > 0 ? Math.round((cntGreens / totalFinalizados) * 100) : 0;
+
+  document.getElementById('cntGreensDay').innerText = cntGreens;
+  document.getElementById('cntRedsDay').innerText = cntReds;
+  document.getElementById('cntAssertDay').innerText = `${assertividade}%`;
+
+  if (filtrados.length === 0) {
+    container.innerHTML = `<div class="apple-card p-6 rounded-3xl text-center text-gray-500 text-xs mt-4 border border-white/5 shadow-sm">Nenhuma oportunidade com taxa ${tipsTabAtual === 'chances' ? '≥80%' : '≥70%'} identificada para a data selecionada. Rode o Motor para atualizar os dados.</div>`;
+    return;
+  }
+
+  const ligasTipsMap = {};
+  filtrados.forEach(j => {
+    const chave = j.pais + " - " + j.competicao;
+    if (!ligasTipsMap[chave]) ligasTipsMap[chave] = { pais: j.pais, competicao: j.competicao, list: [] };
+    ligasTipsMap[chave].list.push(j);
+  });
+
+  const ligasTipsOrdenadas = Object.keys(ligasTipsMap).sort((a, b) => a.localeCompare(b));
+  let html = '';
+
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+
+  ligasTipsOrdenadas.forEach((chave, index) => {
+    const grupo = ligasTipsMap[chave];
+    const pillClass = getCountryPillClass(grupo.pais);
+    const idLigaTip = "tip-" + cleanString(chave);
+
+    let lgGreens = 0;
+    let lgReds = 0;
+
+    grupo.list.forEach(j => {
+      if (j.status === 'FT') {
+        const opp = extrairOportunidadeJogo(j, requiredRate);
+        const metodoRule = opp ? opp.metodo : "OVER LIMITE FT";
+        if (validarGreenRed(metodoRule, j.golsCasa, j.golsFora)) lgGreens++;
+        else lgReds++;
+      }
+    });
+
+    const placarScoreHeader = (lgGreens > 0 || lgReds > 0)
+      ? `<span class="text-[9px] font-mono font-bold mr-2"><b class="text-green-400">🟢 ${lgGreens}</b> <b class="text-red-400 ml-1">🔴 ${lgReds}</b></span>`
+      : '';
+
+    html += `<div class="mb-4">`;
+    html += `<div class="flex justify-between items-center bg-[#1c1c1e] p-3 rounded-2xl border border-white/10 cursor-pointer shadow-sm" onclick="document.getElementById('${idLigaTip}').classList.toggle('hidden')">`;
+    html += `<div class="flex items-center gap-2 pl-1"><span class="px-2.5 py-1 rounded-full text-[9px] uppercase font-black tracking-wider ${pillClass} shadow-sm">${esc(grupo.pais)}</span><span class="text-[10px] font-black uppercase text-white tracking-tight">${esc(grupo.competicao)}</span></div>`;
+    html += `<div class="flex items-center">${placarScoreHeader}<span class="text-xs font-mono font-bold text-amber-500 pr-1">${grupo.list.length} Tips ▾</span></div></div>`;
+    html += `<div id="${idLigaTip}" class="pt-2 space-y-3 ${index === 0 ? '' : 'hidden'}">`;
+
+    grupo.list.forEach(j => {
+      const sId = cleanString(j.id || j.mandante + j.visitante);
+      const opp = extrairOportunidadeJogo(j, requiredRate);
+
+      const metodoSugerido = opp ? opp.metodo : "OVER LIMITE FT";
+      const trendText = opp ? `Método: <b class="text-white">${opp.metodo}</b> • ${opp.regra} (${opp.rateStr})` : "Confluência estatística validada.";
+      const pillStyle = getMethodPillStyle(metodoSugerido);
+
+      const info = getMatchTimerAndStatus(j, now);
+
+      let badgeStatusTip = `<span class="${pillStyle} px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider">${metodoSugerido}</span>`;
+      
+      if (j.status === 'FT') {
+        const isGreen = validarGreenRed(metodoSugerido, j.golsCasa, j.golsFora);
+        badgeStatusTip = isGreen 
+          ? `<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-sm">🟢 GREEN (${j.golsCasa}-${j.golsFora})</span>`
+          : `<span class="bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full text-[9px] font-black uppercase shadow-sm">🔴 RED (${j.golsCasa}-${j.golsFora})</span>`;
+      }
+
+      html += `
+      <div class="bg-[#1c1c1e] p-4 rounded-3xl shadow-lg border border-white/5 relative mb-4">
+        
+        <div class="absolute top-4 left-4 flex gap-2 z-10">
+            <span class="text-[10px] text-gray-400 font-mono flex items-center gap-1"><span class="text-xs">📅</span> ${j.dataJogo}</span>
+        </div>
+        
+        <div class="absolute top-4 right-4 flex gap-2 z-10">
+            ${badgeStatusTip}
+        </div>
+
+        <div class="flex items-center justify-between mt-8 px-2 relative">
+            <div class="flex flex-col items-center gap-2 w-1/3">
+                <img src="${j.logoCasa}" class="w-14 h-14 object-contain drop-shadow-lg">
+                <span class="text-[12px] font-bold text-center text-white leading-tight h-8 flex items-center justify-center">${esc(j.mandante)}</span>
+                <span class="px-4 py-1.5 bg-[#121212] text-white rounded-xl text-[12px] font-mono font-black border border-white/5 shadow-sm mt-1">${j.oddCasa || '-'}</span>
+            </div>
+            
+            <div class="flex flex-col items-center justify-center w-1/3 z-10 relative">
+                ${info.isLive || info.isFT ? 
+                  `<div class="bg-black/50 text-white font-mono font-black text-2xl px-4 py-1.5 rounded-2xl border border-white/10 shadow-inner">${j.golsCasa ?? 0} - ${j.golsFora ?? 0}</div>
+                   <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${j.hora || '00:00'}</span>` 
+                : `<span class="text-3xl font-black font-mono text-white drop-shadow-md tracking-tighter">${j.hora || '00:00'}</span>`
+                }
+                <span class="text-[9px] text-gray-500 font-bold mt-2 tracking-widest uppercase">${j.dataJogo}</span>
+            </div>
+
+            <div class="flex flex-col items-center gap-2 w-1/3">
+                <img src="${j.logoFora}" class="w-14 h-14 object-contain drop-shadow-lg">
+                <span class="text-[12px] font-bold text-center text-white leading-tight h-8 flex items-center justify-center">${esc(j.visitante)}</span>
+                <span class="px-4 py-1.5 bg-[#121212] text-white rounded-xl text-[12px] font-mono font-black border border-white/5 shadow-sm mt-1">${j.oddFora || '-'}</span>
+            </div>
+        </div>
+
+        <div class="ai-prompt-box mt-4 shadow-inner">
+          <b class="text-[10px] block mb-0.5 text-amber-400 uppercase tracking-widest">💡 Oportunidade Identificada:</b>
+          <span class="text-[10px] text-gray-300 leading-relaxed block">${trendText}</span>
+        </div>
+
+        <div class="flex gap-2 mt-4 pt-4 border-t border-white/5">
+          <button onclick="abrirModalBank('${sId}')" class="flex-1 py-3 rounded-2xl bg-[#2c2c2e] hover:bg-gray-700 text-blue-400 font-black text-[10px] uppercase tracking-wider shadow-sm transition-colors border border-white/5 flex items-center justify-center gap-2">📊 Raio-X Completo</button>
+          <button onclick="prepararTradeDirect('${esc(j.mandante)} x ${esc(j.visitante)}', '${esc(j.competicao)}')" class="bg-green-600/20 border border-green-500/40 text-green-400 px-6 py-3 rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center text-[14px]" title="Registrar no Trade">✅</button>
+        </div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function selectMethod(methodName, btnObj) {
+  document.getElementById('tradeMetodo').value = methodName;
+  document.querySelectorAll('.pill-method').forEach(b => b.classList.remove('pill-selected'));
+  btnObj.classList.add('pill-selected');
+}
+
+function alterarCorTipo(val) {
+  const select = document.getElementById('tradeTipo');
+  select.className = `w-full p-3 font-bold ${val === 'LAY' ? 'text-pink-600' : 'text-blue-600'} bg-[#2c2c2e] border border-white/10 rounded-xl`;
+}
+
+function prepararTradeDirect(jogo, liga) {
+  document.getElementById('tradeJogo').value = jogo;
+  document.getElementById('tradeLiga').value = liga;
+  document.getElementById('tradeData').value = new Date().toISOString().split('T')[0];
+  switchView('diario');
+}
+
+function registrarTrade(e) {
+  if (e) e.preventDefault();
+  const btn = document.getElementById('btnSalvarTrade');
+  btn.innerText = "GRAVANDO...";
+
+  const novo = {
+    data: document.getElementById('tradeData').value,
+    liga: document.getElementById('tradeLiga').value,
+    jogo: document.getElementById('tradeJogo').value,
+    mercado: document.getElementById('tradeMercado').value,
+    tipo: document.getElementById('tradeTipo').value,
+    metodo: document.getElementById('tradeMetodo').value,
+    oddEntrada: parseFloat(document.getElementById('tradeOddEntrada').value),
+    stake: parseFloat(document.getElementById('tradeStake').value),
+    status: document.getElementById('tradeStatus').value,
+    pl: document.getElementById('tradeStatus').value === 'GREEN' ? 25.00 : -25.00
+  };
+
+  db.collection('diario_operacoes').add(novo).then(() => {
+    btn.innerText = "SALVAR NO LIVRO";
+    document.getElementById('formDiario').reset();
+    alert("Trade gravado com sucesso no Firebase!");
+    switchView('gestao');
+  });
+}
+
+function carregarFinanceiro() {
+  let totalPL = 0;
+  let greens = 0;
+  let totalOps = diarioOperacoes.length;
+
+  diarioOperacoes.forEach(t => {
+    totalPL += (t.pl || 0);
+    if (t.status === 'GREEN' || t.pl > 0) greens++;
+  });
+
+  const winRate = totalOps > 0 ? ((greens / totalOps) * 100).toFixed(0) : 0;
+  const bancaInicial = 10.00;
+  const bancaAtual = (bancaInicial + totalPL).toFixed(2);
+
+  const bEl = document.getElementById('dashBancaAtual');
+  if (bEl) bEl.innerText = `R$ ${bancaAtual}`;
+
+  const plEl = document.getElementById('dashTotalPL');
+  if (plEl) plEl.innerText = `R$ ${totalPL.toFixed(2)}`;
+
+  const wrEl = document.getElementById('dashWinRate');
+  if (wrEl) wrEl.innerText = `${winRate}%`;
+
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+
+  let html = '';
+  const hoje = new Date();
+  const diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+
+  for (let d = 1; d <= diasNoMes; d++) {
+    html += `<div class="p-2 bg-[#2c2c2e] border border-white/5 rounded-lg text-center"><span class="text-[10px] font-bold block text-gray-400">${d}</span></div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function togglePrivacy(tipo) {
+  if (tipo === 'caixa') {
+    privacyCaixa = !privacyCaixa;
+    document.body.classList.toggle('censored-caixa', privacyCaixa);
+  } else {
+    privacyLivro = !privacyLivro;
+    document.body.classList.toggle('censored-livro', privacyLivro);
+  }
+}
+
+function gerenciarCaixa(tipo) {
+  const v = prompt(`💸 Registrar ${tipo}\nDigite o valor:`);
+  if (v) {
+    const val = parseFloat(v.replace(',', '.'));
+    if (!isNaN(val) && val > 0) {
+      db.collection('diario_operacoes').add({
+        data: new Date().toISOString().split('T')[0],
+        jogo: `[ CAIXA: ${tipo} ]`,
+        liga: 'Gestão',
+        mercado: 'Caixa',
+        tipo: 'SISTEMA',
+        metodo: tipo,
+        stake: val,
+        status: 'VOID',
+        pl: tipo === 'APORTE' ? val : -val
+      });
+    }
+  }
+}
+
+function limparBancoFirestore() {
+  if (confirm("Deseja apagar os dados da coleção jogos_ao_vivo do Firestore?")) {
+    db.collection('jogos_ao_vivo').get().then(snap => {
+      snap.forEach(doc => doc.ref.delete());
+      alert("Coleção zerada!");
+    });
+  }
+}
+
+function mostrarToast(msg, isSuccess = true) {
+  const toast = document.getElementById('toastNotificacao');
+  const icon = document.getElementById('toastIcon');
+  const title = document.getElementById('toastTitle');
+  const message = document.getElementById('toastMsg');
+  
+  if(!toast) return;
+  
+  icon.innerText = isSuccess ? '✅' : '🔔';
+  title.innerText = isSuccess ? 'SUCESSO' : 'AVISO';
+  message.innerText = msg;
+  
+  toast.classList.remove('-translate-y-[150%]');
+  toast.classList.add('translate-y-0');
+  
+  setTimeout(() => {
+    toast.classList.remove('translate-y-0');
+    toast.classList.add('-translate-y-[150%]');
+  }, 3000);
+}
+
+window.onload = function() {
+  const savedTheme = localStorage.getItem('cr7_theme');
+  if (savedTheme === 'light') document.body.classList.remove('dark-theme');
+
+  const savedGeminiKey = localStorage.getItem('cr7_gemini_key');
+  if (savedGeminiKey && document.getElementById('configGeminiKey')) {
+    document.getElementById('configGeminiKey').value = savedGeminiKey;
+  }
+
+  const scroll = document.getElementById('scrollDatas');
+  const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const hj = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  let htmlDatas = '';
+
+  for (let i = -1; i <= 3; i++) {
+    const d = new Date(hj); d.setDate(hj.getDate() + i);
+    const ano = d.getFullYear();
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    const iso = `${ano}-${mes}-${dia}`;
+    const isToday = i === 0;
+
+    htmlDatas += `
+    <button onclick="mudarDataPill('${iso}', this, ${i})" class="px-4 py-2 rounded-full text-xs shrink-0 border ${isToday ? 'bg-blue-600 text-white font-bold border-blue-500 shadow-sm' : 'bg-[#1c1c1e] text-gray-400 border-white/5'} transition-all">
+    ${isToday ? 'HOJE' : diasSemana[d.getDay()]} <span class="text-[8px] block opacity-70 mt-0.5">${dia}/${mes}</span>
+    </button>`;
+  }
+  if (scroll) scroll.innerHTML = htmlDatas;
+
+  db.collection('configuracoes').doc('motor').get().then(doc => {
+    if(doc.exists) {
+      const d = doc.data();
+      if (d.theo_token && document.getElementById('configTheoID')) document.getElementById('configTheoID').value = d.theo_token;
+      if (d.sportmonks_token && document.getElementById('configSportmonks')) document.getElementById('configSportmonks').value = d.sportmonks_token;
+      if (d.apifutebol_key && document.getElementById('configApiFutebol')) document.getElementById('configApiFutebol').value = d.apifutebol_key;
+    }
+  });
+};
+</script>
+</body>
+</html>

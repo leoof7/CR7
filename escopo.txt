@@ -1,0 +1,28 @@
+NOME DO PROJETO: CR7 SIUUU Terminal v7.0 OBJETIVO: Plataforma All-in-One para traders esportivos, contendo radar de jogos, painel de Tips via A.I., cockpit de configurações, e um diário de gestão de banca completo.
+ARQUITETURA TÉCNICA:
+Hospedagem Back-end: Replit (Container NixOS) rodando Node.js com TypeScript.
+Banco de Dados: Firebase Firestore (Coleções principais: jogos_ao_vivo, diario_operacoes, configuracoes).
+Front-end: Single Page Application (SPA) em arquivo único (index.html), utilizando TailwindCSS via CDN e Firebase SDK Native. Design Apple-like (Glassmorphism, Dark Mode).
+O MOTOR DE RASPAGEM (Back-end - index.ts):
+Utiliza Playwright para acessar clube.theoborges.com/matches.
+Possui trava para lidar com a ausência de bibliotecas gráficas no Linux do Replit (usa o Chromium do próprio sistema Nix via which chromium).
+Lógica de Navegação: Abre a grade de 5 dias (ontem, hoje, amanhã, depois, depois2), expande todas as "sanfonas" de ligas e lê jogo por jogo.
+Extração Hierárquica: Captura o País e o Nome da Liga ignorando sujeiras (ex: botões de "Adicionar às partidas").
+Tratamento de Dados: Limpa os textos das abas "Raio-X" e "Principais", removendo linhas indesejadas (cartões, escanteios, jogadores).
+Sincronização: Envia os dados limpos para o Firebase (jogos_ao_vivo) usando batch.set(ref, {merge: true}) e atualiza o tempo de execução e status do motor no documento configuracoes/motor_status.
+O DASHBOARD (Front-end - index.html):
+Radar: Filtra jogos por data, status (Todos, Favoritos, Live, A Seguir, Finalizados). Os jogos ficam agrupados por País e Liga (com as ligas brasileiras sempre no topo).
+Smart Tips: Filtra oportunidades com base nas Odds extraídas (IA Padrões = Odds parelhas >= 1.80 | Grandes Chances = Odds < 1.80). Os cards mudam de cor dinamicamente (Verde/Vermelho) quando o jogo atinge o status FT (Tempo Integral).
+Livro de Gestão: Monitora P/L, Win Rate e exibe um calendário de Greens/Reds alimentado pela coleção diario_operacoes.
+Cockpit: Permite alterar o ID da planilha do Theo, as chaves da API-Football e Sportmonks, limpar o banco de dados e monitorar o cronômetro do Motor em tempo real.
+MARCOS ALCANÇADOS E SOLUCIONADOS:
+Resolução do erro de libglib e bibliotecas ausentes no Replit via replit.nix.
+Fim do loop infinito: o motor agora roda apenas quando acionado via Cockpit ou a cada 12 horas, evitando bloqueio de IP.
+Tratamento de UX nas abas: Jogos de "ontem" forçam o status FT e não exibem abas de "A seguir". Jogos futuros mostram placar "vs" ao invés de "0 - 0".
+Resgate histórico: Criado script importar.ts que converteu e devolveu com sucesso 499 operações de uma planilha Excel de volta ao Firestore.
+📂 3. O que mais subir para o NotebookLM? Para que sua base de conhecimento fique absoluta, faça o upload dos seguintes arquivos no Notebook:
+index.html: O arquivo completo do seu Front-end atual.
+index.ts: O arquivo completo do seu Back-end atual.
+O PDF de Regras de Extração: Aquele documento que você mencionou com o mapeamento exato de quais dados o robô deve pegar e ignorar.
+Documentações de API: Se você tiver arquivos PDF ou os links das documentações oficiais da API-Football e da Sportmonks, salve em PDF e suba lá. Assim, a Gem saberá exatamente quais endpoints usar para atualizar os gols e minutos em tempo real.
+Estrutura do replit.nix e package.json: Apenas um arquivo de texto simples mostrando as dependências instaladas no seu ambiente.
