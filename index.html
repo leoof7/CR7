@@ -1104,10 +1104,37 @@ function hasM(metrica, keys) {
     return keys.some(k => m.includes(k.toLowerCase()));
 }
 
+let estadoAoVivoAnterior = {};
+
+// Compara o snapshot novo com o anterior e dispara toast pra gol, cartão
+// vermelho e fim de jogo - alimentado pelo motor a cada 5min via API-Live.
+function alertarEventosAoVivo(jogosNovos) {
+  jogosNovos.forEach(j => {
+    const anterior = estadoAoVivoAnterior[j.id];
+    if (anterior) {
+      const golsAntes = (anterior.golsCasa || 0) + (anterior.golsFora || 0);
+      const golsAgora = (j.golsCasa || 0) + (j.golsFora || 0);
+      if (golsAgora > golsAntes) {
+        mostrarToast(`⚽ GOL! ${esc(j.mandante)} ${j.golsCasa}-${j.golsFora} ${esc(j.visitante)} (${j.minutoAoVivo || j.status})${j.ultimoGol ? ' · ' + esc(j.ultimoGol) : ''}`, true);
+      }
+      const vermelhosAntes = (anterior.cartaoVermelhoCasa || 0) + (anterior.cartaoVermelhoFora || 0);
+      const vermelhosAgora = (j.cartaoVermelhoCasa || 0) + (j.cartaoVermelhoFora || 0);
+      if (vermelhosAgora > vermelhosAntes) {
+        mostrarToast(`🟥 Cartão vermelho em ${esc(j.mandante)} x ${esc(j.visitante)}${j.ultimoCartaoVermelho ? ' · ' + esc(j.ultimoCartaoVermelho) : ''}`, false);
+      }
+      if (anterior.status === 'LIVE' && j.status === 'FT') {
+        mostrarToast(`🏁 FIM DE JOGO: ${esc(j.mandante)} ${j.golsCasa}-${j.golsFora} ${esc(j.visitante)}`, true);
+      }
+    }
+    estadoAoVivoAnterior[j.id] = { golsCasa: j.golsCasa, golsFora: j.golsFora, cartaoVermelhoCasa: j.cartaoVermelhoCasa, cartaoVermelhoFora: j.cartaoVermelhoFora, status: j.status };
+  });
+}
+
 db.collection('jogos_ao_vivo').onSnapshot(snapshot => {
   todosOsJogos = [];
   snapshot.forEach(doc => todosOsJogos.push(doc.data()));
-  
+  alertarEventosAoVivo(todosOsJogos);
+
   if(renderDebounce) clearTimeout(renderDebounce);
   renderDebounce = setTimeout(() => {
       filtrarJogos();
@@ -1446,7 +1473,8 @@ function renderizarAgrupamento(jogos) {
           <div class="flex flex-col items-center justify-center w-1/3 z-10 relative">
               ${info.isLive || info.isFT ? 
                 `<div class="bg-black/50 text-white font-mono font-black text-2xl px-4 py-1.5 rounded-2xl border border-white/10 shadow-inner">${j.golsCasa ?? 0} - ${j.golsFora ?? 0}</div>
-                 <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${j.hora || '00:00'}</span>` 
+                 <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${info.isLive ? (j.minutoAoVivo || 'AO VIVO') : (j.hora || '00:00')}</span>
+                 ${((j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)) > 0 ? `<span class="text-[9px] font-bold text-red-400 mt-0.5">🟥 ${(j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)}</span>` : ''}`
               : `<span class="text-3xl font-black font-mono text-white drop-shadow-md tracking-tighter">${j.hora || '00:00'}</span>`
               }
               ${autorGol}
@@ -1930,7 +1958,8 @@ function renderizarTips() {
             <div class="flex flex-col items-center justify-center w-1/3 z-10 relative">
                 ${info.isLive || info.isFT ?
                   `<div class="bg-black/50 text-white font-mono font-black text-2xl px-4 py-1.5 rounded-2xl border border-white/10 shadow-inner">${j.golsCasa ?? 0} - ${j.golsFora ?? 0}</div>
-                   <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${j.hora || '00:00'}</span>`
+                   <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${info.isLive ? (j.minutoAoVivo || 'AO VIVO') : (j.hora || '00:00')}</span>
+                   ${((j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)) > 0 ? `<span class="text-[9px] font-bold text-red-400 mt-0.5">🟥 ${(j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)}</span>` : ''}`
                 : `<span class="text-3xl font-black font-mono text-white drop-shadow-md tracking-tighter">${j.hora || '00:00'}</span>`
                 }
                 <span class="text-[9px] text-gray-500 font-bold mt-2 tracking-widest uppercase">${j.dataJogo}</span>

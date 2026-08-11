@@ -80,12 +80,19 @@ async function sincronizarAoVivoBackend() {
               const hScore = item.scores?.find(s => s.description === 'CURRENT')?.score?.goals || 0;
               const aScore = item.scores?.find(s => s.description === 'CURRENT')?.score?.goals || 0;
               const min = item.state?.minute || "LIVE";
-              
-              let lastGoalScorer = "";
-              if (item.events) {
-                  const goals = item.events.filter(e => e.type_id === 14); 
-                  if(goals.length > 0) lastGoalScorer = goals[goals.length - 1].player_name || "";
-              }
+
+              // Um único fetch já trouxe os eventos (include=events) - aproveita tudo
+              // pra não gastar outra requisição: gols, cartões vermelhos e substituições.
+              const eventos = Array.isArray(item.events) ? item.events : [];
+              const golsEvt = eventos.filter((e: any) => [14, 15, 16].includes(e.type_id));
+              const vermelhosEvt = eventos.filter((e: any) => [20, 21].includes(e.type_id));
+              const subsEvt = eventos.filter((e: any) => e.type_id === 18);
+
+              const lastGoalScorer = golsEvt.length ? (golsEvt[golsEvt.length - 1].player_name || "") : "";
+              const vermelhoCasa = vermelhosEvt.filter((e: any) => e.participant_id === item.participants?.find((p: any) => p.meta?.location === 'home')?.id).length;
+              const vermelhoFora = vermelhosEvt.length - vermelhoCasa;
+              const ultimoVermelho = vermelhosEvt.length ? (vermelhosEvt[vermelhosEvt.length - 1].player_name || "") : "";
+              const ultimaSubstituicao = subsEvt.length ? (subsEvt[subsEvt.length - 1].player_name || "") : "";
 
               const match = jogosAtuais.find(j => {
                 const m = normalizarNome(j.mandante);
@@ -95,7 +102,11 @@ async function sincronizarAoVivoBackend() {
 
               if (match) {
                 await db.collection('jogos_ao_vivo').doc(String(match.id)).set({
-                  golsCasa: hScore, golsFora: aScore, status: 'LIVE', minutoAoVivo: `${min}'`, ultimoGol: lastGoalScorer
+                  golsCasa: hScore, golsFora: aScore, status: 'LIVE', minutoAoVivo: `${min}'`,
+                  ultimoGol: lastGoalScorer,
+                  cartaoVermelhoCasa: vermelhoCasa, cartaoVermelhoFora: vermelhoFora, ultimoCartaoVermelho: ultimoVermelho,
+                  totalSubstituicoes: subsEvt.length, ultimaSubstituicao: ultimaSubstituicao,
+                  eventosAoVivoAtualizadoEm: new Date().toISOString()
                 }, { merge: true });
               }
             }
@@ -127,12 +138,17 @@ async function sincronizarAoVivoBackend() {
               const hScore = item.goals?.home || 0;
               const aScore = item.goals?.away || 0;
               const min = item.fixture?.status?.elapsed || "LIVE";
-              
-              let lastGoalScorer = "";
-              if (item.events) {
-                  const goals = item.events.filter(e => e.type === 'Goal');
-                  if(goals.length > 0) lastGoalScorer = goals[goals.length - 1].player?.name || "";
-              }
+
+              const eventos = Array.isArray(item.events) ? item.events : [];
+              const golsEvt = eventos.filter((e: any) => e.type === 'Goal');
+              const vermelhosEvt = eventos.filter((e: any) => e.type === 'Card' && (e.detail || '').toUpperCase().includes('RED'));
+              const subsEvt = eventos.filter((e: any) => e.type === 'subst' || e.type === 'Subst');
+
+              const lastGoalScorer = golsEvt.length ? (golsEvt[golsEvt.length - 1].player?.name || "") : "";
+              const vermelhoCasa = vermelhosEvt.filter((e: any) => e.team?.id === item.teams?.home?.id).length;
+              const vermelhoFora = vermelhosEvt.length - vermelhoCasa;
+              const ultimoVermelho = vermelhosEvt.length ? (vermelhosEvt[vermelhosEvt.length - 1].player?.name || "") : "";
+              const ultimaSubstituicao = subsEvt.length ? (subsEvt[subsEvt.length - 1].player?.name || "") : "";
 
               const match = jogosAtuais.find(j => {
                 const m = normalizarNome(j.mandante);
@@ -142,7 +158,11 @@ async function sincronizarAoVivoBackend() {
 
               if (match) {
                 await db.collection('jogos_ao_vivo').doc(String(match.id)).set({
-                  golsCasa: hScore, golsFora: aScore, status: 'LIVE', minutoAoVivo: `${min}'`, ultimoGol: lastGoalScorer
+                  golsCasa: hScore, golsFora: aScore, status: 'LIVE', minutoAoVivo: `${min}'`,
+                  ultimoGol: lastGoalScorer,
+                  cartaoVermelhoCasa: vermelhoCasa, cartaoVermelhoFora: vermelhoFora, ultimoCartaoVermelho: ultimoVermelho,
+                  totalSubstituicoes: subsEvt.length, ultimaSubstituicao: ultimaSubstituicao,
+                  eventosAoVivoAtualizadoEm: new Date().toISOString()
                 }, { merge: true });
               }
             }
