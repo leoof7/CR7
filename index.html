@@ -318,14 +318,15 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 </div>
 </div>
 
-<div class="apple-card p-5 rounded-3xl border border-blue-500/20 shadow-md">
-<h3 class="text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3">🤖 IA Claude (Análise + Alavancagem)</h3>
+<div class="apple-card p-5 rounded-3xl border border-purple-500/20 shadow-md">
+<h3 class="text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3">🚀 IA de Alavancagem (Gemini)</h3>
 <div class="space-y-3">
   <div>
-    <label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Anthropic API Key</label>
-    <input type="password" id="configClaudeKey" placeholder="sk-ant-..." class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
+    <label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Endpoint Gemini (URL)</label>
+    <input type="text" id="configGeminiUrl" placeholder="https://generativelanguage.googleapis.com/v1beta/models/..." class="w-full p-3 font-mono text-[10px] border border-gray-200 dark:border-white/10 rounded-xl">
+    <p class="text-[9px] text-gray-500 mt-1">Usa a mesma chave do Gemini acima. A chave é anexada automaticamente na URL.</p>
   </div>
-  <button onclick="salvarClaudeKey()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Salvar Chave Claude</button>
+  <button onclick="salvarGeminiUrl()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Salvar Endpoint</button>
 </div>
 </div>
 
@@ -424,11 +425,21 @@ function salvarGeminiKey() {
   }
 }
 
-function salvarClaudeKey() {
-  const k = document.getElementById('configClaudeKey')?.value.trim();
-  if(k) {
-    localStorage.setItem('cr7_claude_key', k);
-    mostrarToast("Chave da Claude salva com sucesso!");
+// Endpoint padrão da IA de alavancagem. Fica configurável porque o modelo/versão
+// do Gemini muda com frequência - trocar aqui não exige mexer no código.
+const GEMINI_URL_PADRAO = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
+function getGeminiUrl() {
+  return document.getElementById('configGeminiUrl')?.value.trim()
+      || localStorage.getItem('cr7_gemini_url')
+      || GEMINI_URL_PADRAO;
+}
+
+function salvarGeminiUrl() {
+  const u = document.getElementById('configGeminiUrl')?.value.trim();
+  if (u) {
+    localStorage.setItem('cr7_gemini_url', u);
+    mostrarToast("Endpoint do Gemini salvo com sucesso!");
   }
 }
 
@@ -1944,7 +1955,7 @@ Traga estritamente em português em formato simples:
   }
 }
 
-// ===================== ALAVANCAGEM COM IA (Claude + busca web) =====================
+// ===================== ALAVANCAGEM COM IA (Gemini + busca web) =====================
 // Escapa só o que quebraria o HTML - preserva aspas/acentos do texto da IA (esc() do
 // resto do app remove aspas, o que estraga a prosa da análise).
 function escHtml(str) {
@@ -1982,57 +1993,53 @@ Pesquise na web notícias PÚBLICAS e de fontes confiáveis dos últimos dias an
 5) Alavancagem do dia (odd até 1.5): (aponte, entre os mercados prováveis deste jogo, qual tem odd até 1.5 e boa segurança pra entrar numa múltipla diária - ou diga explicitamente que este jogo não oferece opção segura de odd baixa)`;
 }
 
-async function analisarJogoComClaude(sId) {
+async function analisarJogoComIA(sId) {
   const j = window.alavancagemBank?.[sId];
   if (!j) return;
 
-  const apiKey = document.getElementById('configClaudeKey')?.value.trim() || localStorage.getItem('cr7_claude_key') || '';
+  const apiKey = document.getElementById('configGeminiKey')?.value.trim() || localStorage.getItem('cr7_gemini_key') || '';
   if (!apiKey) {
-    alert("Insira a sua chave API da Anthropic (Claude) na Sala de Máquinas (⚙️)!");
+    alert("Insira a sua chave API do Google Gemini na Sala de Máquinas (⚙️)!");
     switchView('config');
     return;
   }
-  localStorage.setItem('cr7_claude_key', apiKey);
+  localStorage.setItem('cr7_gemini_key', apiKey);
 
-  const box = document.getElementById(`claude-box-${sId}`);
-  if (box) box.innerHTML = `<span class="text-blue-400 font-bold animate-pulse text-[11px]">🤖 Claude está pesquisando notícias e analisando o jogo...</span>`;
+  const box = document.getElementById(`ia-box-${sId}`);
+  if (box) box.innerHTML = `<span class="text-purple-400 font-bold animate-pulse text-[11px]">🤖 Gemini está pesquisando notícias e analisando o jogo...</span>`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const url = `${getGeminiUrl()}?key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-opus-5',
-        max_tokens: 1536,
-        thinking: { type: 'disabled' },
-        output_config: { effort: 'medium' },
-        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5 }],
-        messages: [{ role: 'user', content: montarPromptAnaliseIA(j) }]
+        contents: [{ role: 'user', parts: [{ text: montarPromptAnaliseIA(j) }] }],
+        // Grounding com Google Search - é o que dá acesso às notícias recentes
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 1536 }
       })
     });
 
     const data = await res.json();
 
     if (data.error) {
-      if (box) box.innerHTML = `<span class="text-red-400 font-bold text-[10px]">❌ Erro Claude: ${escHtml(data.error.message || JSON.stringify(data.error))}</span>`;
-      return;
-    }
-    if (data.stop_reason === 'refusal') {
-      if (box) box.innerHTML = `<span class="text-red-400 text-[10px]">⚠️ A Claude recusou analisar esta consulta.</span>`;
+      if (box) box.innerHTML = `<span class="text-red-400 font-bold text-[10px]">❌ Erro Gemini: ${escHtml(data.error.message || JSON.stringify(data.error))}</span>`;
       return;
     }
 
-    const texto = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n\n').trim() || 'Nenhuma análise retornada.';
+    const cand = data.candidates?.[0];
+    if (!cand || cand.finishReason === 'SAFETY' || cand.finishReason === 'BLOCKED') {
+      if (box) box.innerHTML = `<span class="text-red-400 text-[10px]">⚠️ O Gemini não retornou análise para esta consulta (${escHtml(cand?.finishReason || 'sem candidato')}).</span>`;
+      return;
+    }
+
+    const texto = (cand.content?.parts || []).map(p => p.text).filter(Boolean).join('\n').trim() || 'Nenhuma análise retornada.';
 
     if (box) {
       box.innerHTML = `
-      <div class="bg-black/30 rounded-xl p-3 mt-1 border border-blue-500/20">
-        <b class="text-[10px] block mb-1 text-blue-400 uppercase tracking-widest">🤖 Análise Claude (c/ pesquisa web):</b>
+      <div class="bg-black/30 rounded-xl p-3 mt-1 border border-purple-500/20">
+        <b class="text-[10px] block mb-1 text-purple-400 uppercase tracking-widest">🤖 Análise Gemini (c/ pesquisa web):</b>
         <span class="text-[10px] text-gray-200 leading-relaxed block whitespace-pre-line">${escHtml(texto)}</span>
       </div>`;
     }
@@ -2042,7 +2049,7 @@ async function analisarJogoComClaude(sId) {
 }
 
 // Lista os jogos do dia com odd até 1.50 (favoritismo claro) - candidatos naturais
-// pra uma múltipla de alavancagem diária. Cada card já dispara a análise Claude sob demanda.
+// pra uma múltipla de alavancagem diária. Cada card já dispara a análise Gemini sob demanda.
 function renderizarAlavancagem() {
   const container = document.getElementById('listaAlavancagemCards');
   if (!container) return;
@@ -2078,8 +2085,8 @@ function renderizarAlavancagem() {
         <span class="text-[9px] font-mono text-blue-400">${esc(j.hora || '')}</span>
       </div>
       <div class="text-[9px] text-gray-500 mb-2">${esc(j.competicao)} • Favorito: <b class="text-white">${esc(nomeFav)}</b> (Odd ${oddFav})</div>
-      <button onclick="analisarJogoComClaude('${sId}')" class="w-full py-2 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-400 font-bold text-[9px] uppercase tracking-wider">🤖 Analisar com Claude (busca notícias)</button>
-      <div id="claude-box-${sId}" class="mt-2"></div>
+      <button onclick="analisarJogoComIA('${sId}')" class="w-full py-2 rounded-xl bg-purple-600/20 border border-purple-500/40 text-purple-400 font-bold text-[9px] uppercase tracking-wider">🤖 Analisar com Gemini (busca notícias)</button>
+      <div id="ia-box-${sId}" class="mt-2"></div>
     </div>`;
   }).join('');
 }
@@ -2410,9 +2417,9 @@ window.onload = function() {
     document.getElementById('configGeminiKey').value = savedGeminiKey;
   }
 
-  const savedClaudeKey = localStorage.getItem('cr7_claude_key');
-  if (savedClaudeKey && document.getElementById('configClaudeKey')) {
-    document.getElementById('configClaudeKey').value = savedClaudeKey;
+  const campoGeminiUrl = document.getElementById('configGeminiUrl');
+  if (campoGeminiUrl) {
+    campoGeminiUrl.value = localStorage.getItem('cr7_gemini_url') || GEMINI_URL_PADRAO;
   }
 
   const scroll = document.getElementById('scrollDatas');
