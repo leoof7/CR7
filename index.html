@@ -528,6 +528,8 @@ function getMethodPillStyle(metodo) {
   if (m.includes('OVER 0.5 2T')) return 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40 shadow-sm';
   if (m.includes('OVER LIMITE 2T')) return 'bg-violet-500/20 text-violet-300 border border-violet-500/40 shadow-sm';
   if (m.includes('UNDER LIMITE 2T')) return 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm';
+  if (m.includes('MARCA GOL')) return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm';
+  if (m.includes('SOFRE GOL')) return 'bg-rose-600/20 text-rose-300 border border-rose-600/40 shadow-sm';
   if (m.includes('OVER 0.5 HT')) return 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm';
   if (m.includes('OVER A FRENTE')) return 'bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm';
   if (m.includes('OVER LIMITE HT')) return 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm';
@@ -563,19 +565,31 @@ function extrairOportunidadesJogo(j) {
     const rGols = pkt.raiox_json?.gols || [];
     const rDesempenho = pkt.raiox_json?.desempenho || [];
 
-    const addOportunidade = (metodo, regra, rateVal, rateStr, origem, periodo) => {
+    // Sequências condicionais (ex.: "Venceu Após Abrir", "Buscou Empate", "Virou e
+    // Venceu") não têm relação clara com nenhum método de aposta - só confundem
+    // como badge isolado, então nunca viram oportunidade (continuam disponíveis no
+    // Raio-X Completo, com o contexto da seção, onde fazem sentido).
+    const EH_SEQUENCIA_CONDICIONAL = /APÓS ABRIR|APOS ABRIR|APÓS SAIR|APOS SAIR|BUSCOU EMPATE|BUSCOU NOVAMENTE|VIROU E VENCEU|SOFREU NOVAMENTE|AMPLIOU O PLACAR|SOFREU O EMPATE/;
+
+    const addOportunidade = (metodo, regra, rateVal, rateStr, origem, periodo, casaFora) => {
       if (rateVal === null || rateVal < OPORTUNIDADE_PISO) return;
+      if (metodo.includes('UNDER')) {
+        const linha = extrairLinhaNumerica(regra) ?? extrairLinhaNumerica(metodo);
+        if (linha !== null && linha >= 3.5) return; // acima de 3.5 é quase sempre verdade, não é uma oportunidade de verdade
+      }
       oportunidades.push({
         metodo, regra, rateStr,
         percent: Math.round(rateVal * 100),
         fonte: { origem, rotulo: regra, valorBruto: rateStr },
-        tempo: periodo || null
+        tempo: periodo || null,
+        casaFora: casaFora || null
       });
     };
 
     // =========== 1. TENDÊNCIAS (rate vem como "3/5", "7/10", "80%", etc.) ===========
     for (const t of tendencias) {
       if (isCardOrCornerRule(t.regra)) continue;
+      if (EH_SEQUENCIA_CONDICIONAL.test((t.regra || '').toUpperCase())) continue;
       const rateVal = parseRateToPercent(t.rate);
       const rUpper = (t.regra || '').toUpperCase();
       let metodo = '';
@@ -596,6 +610,7 @@ function extrairOportunidadesJogo(j) {
     // =========== 2. CONFRONTO DIRETO ===========
     for (const c of confronto) {
       if (isCardOrCornerRule(c.metrica)) continue;
+      if (EH_SEQUENCIA_CONDICIONAL.test((c.metrica || '').toUpperCase())) continue;
       const rateVal = parseRateToPercent(c.valor);
       const mUpper = (c.metrica || '').toUpperCase();
       let metodo = '';
@@ -610,6 +625,8 @@ function extrairOportunidadesJogo(j) {
     }
 
     // =========== 3. GOLS (Raio-X) - só aceita valores que sejam % ou fração reais ===========
+    // Média sempre calculada pelos DOIS times (combinarCasaFora) - nunca usa uma
+    // "média" pronta que o site mostra, cuja base de cálculo a gente não controla.
     for (const g of rGols) {
       if (!g.metrica) continue;
       const mUpper = g.metrica.toUpperCase();
@@ -628,26 +645,24 @@ function extrairOportunidadesJogo(j) {
 
       const valCasa = parseRateToPercent(g.casa);
       const valFora = parseRateToPercent(g.fora);
-      const valMedia = parseRateToPercent(g.media);
-      const combinado = valMedia !== null ? valMedia : combinarCasaFora(valCasa, valFora, metodo);
-      const rateStrOrigem = valMedia !== null ? g.media : `${g.casa ?? ''} / ${g.fora ?? ''}`;
+      const combinado = combinarCasaFora(valCasa, valFora, metodo);
 
-      addOportunidade(metodo, g.metrica, combinado, rateStrOrigem, 'Gols', g.periodo);
+      addOportunidade(metodo, g.metrica, combinado, `${g.casa ?? ''} / ${g.fora ?? ''}`, 'Gols', g.periodo, { casa: g.casa, fora: g.fora });
     }
 
     // =========== 4. DESEMPENHO (Raio-X) - % ou frações ===========
     for (const d of rDesempenho) {
       if (!d.metrica) continue;
       const mUpper = d.metrica.toUpperCase();
+      if (EH_SEQUENCIA_CONDICIONAL.test(mUpper)) continue;
 
       let metodo = '';
       if (mUpper.includes('MARCOU PRIMEIRO') || mUpper.includes('PRIMEIRO GOL')) metodo = 'OVER 0.5 HT';
-      else if (mUpper.includes('VENCEU APÓS ABRIR') || mUpper.includes('VENCEU')) metodo = 'BACK FAVORITO';
-      else if (mUpper.includes('AMPLIOU') || mUpper.includes('SOFREU EMPATE')) metodo = 'OVER A FRENTE HT';
-      else if (mUpper.includes('VIROU') || mUpper.includes('BUSCOU')) metodo = 'LAY ZEBRA';
+      else if (mUpper.includes('MARCOU GOL')) metodo = 'MARCA GOL HT';
+      else if (mUpper.includes('SOFREU GOL')) metodo = 'SOFRE GOL HT';
+      else if (mUpper.includes('VENCEU')) metodo = 'BACK FAVORITO'; // só o "Venceu X%" simples - vira taxa de vitória
       else if (mUpper.includes('POSSE') || mUpper.includes('POSIÇÃO') || mUpper.includes('POSICAO')) continue;
-      else if (mUpper.includes('MARCOU GOL') || mUpper.includes('SOFREU GOL')) metodo = mUpper.includes('SOFREU') ? 'OVER A FRENTE HT' : 'OVER 0.5 HT';
-      else continue;
+      else continue; // "Virou e Venceu", "Ampliou o Placar" etc. - sem relação clara com um método, ficam só no Raio-X
 
       metodo = ajustarMetodoPorPeriodo(metodo, d.periodo);
 
@@ -655,7 +670,7 @@ function extrairOportunidadesJogo(j) {
       const valFora = parseRateToPercent(d.fora);
       const combinado = combinarCasaFora(valCasa, valFora, metodo);
 
-      addOportunidade(metodo, d.metrica, combinado, `${d.casa ?? ''} / ${d.fora ?? ''}`, 'Desempenho', d.periodo);
+      addOportunidade(metodo, d.metrica, combinado, `${d.casa ?? ''} / ${d.fora ?? ''}`, 'Desempenho', d.periodo, { casa: d.casa, fora: d.fora });
     }
 
     // =========== 5. DEDUP + ORDENA ===========
@@ -1846,6 +1861,15 @@ function renderBadgeResultadoOp(op, j) {
 function renderLinhaOportunidade(op, j) {
   const pillStyle = getMethodPillStyle(op.metodo);
   const tempoTag = op.tempo === '2T' ? ' • 2º Tempo' : (op.tempo === '1T' ? ' • 1º Tempo' : '');
+
+  // Quando o valor vem de casa+fora, mostra os dois números junto do escudo de
+  // cada time - deixa claro de qual time é cada percentual/fração.
+  const detalhe = op.casaFora
+    ? `<span class="inline-flex items-center gap-1"><img src="${j.logoCasa}" class="w-3.5 h-3.5 rounded-full object-contain bg-black/30">${esc(op.casaFora.casa || '-')}</span>
+       <span class="text-gray-600 mx-1">/</span>
+       <span class="inline-flex items-center gap-1"><img src="${j.logoFora}" class="w-3.5 h-3.5 rounded-full object-contain bg-black/30">${esc(op.casaFora.fora || '-')}</span>`
+    : esc(op.rateStr);
+
   return `
     <div class="bg-[#121212] border border-white/5 rounded-2xl p-3 mb-2 shadow-sm">
       <div class="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
@@ -1855,7 +1879,7 @@ function renderLinhaOportunidade(op, j) {
           ${renderBadgeResultadoOp(op, j)}
         </div>
       </div>
-      <div class="text-[10px] text-gray-300 leading-snug">${esc(op.regra)} <span class="text-gray-500">(${esc(op.rateStr)})</span></div>
+      <div class="text-[10px] text-gray-300 leading-snug">${esc(op.regra)} <span class="text-gray-500 inline-flex items-center gap-1">(${detalhe})</span></div>
       <div class="text-[9px] text-gray-500 mt-1 uppercase tracking-wide">📌 Fonte: ${esc(op.fonte.origem)}${tempoTag}</div>
     </div>`;
 }
