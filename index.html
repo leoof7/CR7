@@ -319,6 +319,17 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 </div>
 
 <div class="apple-card p-5 rounded-3xl border border-blue-500/20 shadow-md">
+<h3 class="text-[11px] font-black uppercase tracking-wider text-gray-500 mb-3">🤖 IA Claude (Análise + Alavancagem)</h3>
+<div class="space-y-3">
+  <div>
+    <label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Anthropic API Key</label>
+    <input type="password" id="configClaudeKey" placeholder="sk-ant-..." class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
+  </div>
+  <button onclick="salvarClaudeKey()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-wider transition-colors">Salvar Chave Claude</button>
+</div>
+</div>
+
+<div class="apple-card p-5 rounded-3xl border border-blue-500/20 shadow-md">
 <h3 class="text-xs font-black text-blue-600 uppercase tracking-widest mb-3">🔌 Conexões & APIs Ao Vivo</h3>
 <div class="space-y-4">
 <div>
@@ -410,6 +421,14 @@ function salvarGeminiKey() {
   if(k) {
     localStorage.setItem('cr7_gemini_key', k);
     mostrarToast("Chave do Gemini salva com sucesso!");
+  }
+}
+
+function salvarClaudeKey() {
+  const k = document.getElementById('configClaudeKey')?.value.trim();
+  if(k) {
+    localStorage.setItem('cr7_claude_key', k);
+    mostrarToast("Chave da Claude salva com sucesso!");
   }
 }
 
@@ -1154,7 +1173,8 @@ db.collection('jogos_ao_vivo').onSnapshot(snapshot => {
   renderDebounce = setTimeout(() => {
       filtrarJogos();
       if(!document.getElementById('view-tips').classList.contains('hidden-view')) renderizarTips();
-  }, 600); 
+      if(!document.getElementById('view-projetos').classList.contains('hidden-view')) renderizarAlavancagem();
+  }, 600);
 });
 
 // Auto-atualiza os relógios do radar a cada 30 segundos
@@ -1217,6 +1237,7 @@ function switchView(viewName) {
   }
   if (viewName === 'tips') renderizarTips();
   if (viewName === 'gestao') carregarFinanceiro();
+  if (viewName === 'projetos') renderizarAlavancagem();
 }
 
 function salvarConfigMotor() {
@@ -1840,6 +1861,146 @@ Traga estritamente em português em formato simples:
   }
 }
 
+// ===================== ALAVANCAGEM COM IA (Claude + busca web) =====================
+// Escapa só o que quebraria o HTML - preserva aspas/acentos do texto da IA (esc() do
+// resto do app remove aspas, o que estraga a prosa da análise).
+function escHtml(str) {
+  return String(str || '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+function montarPromptAnaliseIA(j) {
+  let pkt = {};
+  try { pkt = JSON.parse(j.eventosJSON || '{}'); } catch(e) {}
+
+  const oportunidades = extrairOportunidadesJogo(j).slice(0, 8);
+  const resumoOportunidades = oportunidades.length
+    ? oportunidades.map(o => `- ${o.metodo}: ${o.regra} (${o.percent}%, fonte: ${o.fonte.origem})`).join('\n')
+    : 'Sem oportunidades estatísticas relevantes extraídas pelo nosso motor.';
+
+  return `Você é um analista quantitativo de trading esportivo especializado em apostas de alavancagem diária (odds baixas, mercados seguros para múltiplas).
+
+JOGO: ${j.mandante} x ${j.visitante}
+COMPETIÇÃO: ${j.pais} - ${j.competicao}
+DATA/HORA: ${j.dataJogo} ${j.hora}
+ODDS DE MERCADO: ${j.mandante} ${j.oddCasa} | Empate ${j.oddEmpate || '-'} | ${j.visitante} ${j.oddFora}
+
+ESTATÍSTICAS EXTRAÍDAS DO NOSSO SISTEMA (Raio-X):
+${resumoOportunidades}
+
+DADOS BRUTOS ADICIONAIS (H2H, desempenho, gols, JSON): ${JSON.stringify(pkt).slice(0, 6000)}
+
+INSTRUÇÕES:
+Pesquise na web notícias PÚBLICAS e de fontes confiáveis dos últimos dias antes do jogo (lesões, desfalques, escalação provável, momento das equipes, mando de campo, motivação/necessidade de resultado). Combine isso com as estatísticas acima e responda ESTRITAMENTE em português, neste formato:
+
+1) Resultado mais provável: (placar aproximado e como o jogo deve se decidir)
+2) Quantos gols podem vir nesse jogo? (faixa de gols esperada e por quê)
+3) Mercado mais seguro para apostar: (1 mercado, com justificativa)
+4) Confiança (0 a 10): (nota e motivo em 1 frase)
+5) Alavancagem do dia (odd até 1.5): (aponte, entre os mercados prováveis deste jogo, qual tem odd até 1.5 e boa segurança pra entrar numa múltipla diária - ou diga explicitamente que este jogo não oferece opção segura de odd baixa)`;
+}
+
+async function analisarJogoComClaude(sId) {
+  const j = window.alavancagemBank?.[sId];
+  if (!j) return;
+
+  const apiKey = document.getElementById('configClaudeKey')?.value.trim() || localStorage.getItem('cr7_claude_key') || '';
+  if (!apiKey) {
+    alert("Insira a sua chave API da Anthropic (Claude) na Sala de Máquinas (⚙️)!");
+    switchView('config');
+    return;
+  }
+  localStorage.setItem('cr7_claude_key', apiKey);
+
+  const box = document.getElementById(`claude-box-${sId}`);
+  if (box) box.innerHTML = `<span class="text-blue-400 font-bold animate-pulse text-[11px]">🤖 Claude está pesquisando notícias e analisando o jogo...</span>`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-5',
+        max_tokens: 1536,
+        thinking: { type: 'disabled' },
+        output_config: { effort: 'medium' },
+        tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 5 }],
+        messages: [{ role: 'user', content: montarPromptAnaliseIA(j) }]
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      if (box) box.innerHTML = `<span class="text-red-400 font-bold text-[10px]">❌ Erro Claude: ${escHtml(data.error.message || JSON.stringify(data.error))}</span>`;
+      return;
+    }
+    if (data.stop_reason === 'refusal') {
+      if (box) box.innerHTML = `<span class="text-red-400 text-[10px]">⚠️ A Claude recusou analisar esta consulta.</span>`;
+      return;
+    }
+
+    const texto = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n\n').trim() || 'Nenhuma análise retornada.';
+
+    if (box) {
+      box.innerHTML = `
+      <div class="bg-black/30 rounded-xl p-3 mt-1 border border-blue-500/20">
+        <b class="text-[10px] block mb-1 text-blue-400 uppercase tracking-widest">🤖 Análise Claude (c/ pesquisa web):</b>
+        <span class="text-[10px] text-gray-200 leading-relaxed block whitespace-pre-line">${escHtml(texto)}</span>
+      </div>`;
+    }
+  } catch (e) {
+    if (box) box.innerHTML = `<span class="text-red-400 text-[10px]">❌ Erro na requisição: ${escHtml(e.message)}</span>`;
+  }
+}
+
+// Lista os jogos do dia com odd até 1.50 (favoritismo claro) - candidatos naturais
+// pra uma múltipla de alavancagem diária. Cada card já dispara a análise Claude sob demanda.
+function renderizarAlavancagem() {
+  const container = document.getElementById('listaAlavancagemCards');
+  if (!container) return;
+
+  window.alavancagemBank = window.alavancagemBank || {};
+
+  const hoje = dataSelecionadaISO || new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })).toISOString().split('T')[0];
+
+  const candidatos = todosOsJogos.filter(j => {
+    if (j.dataJogo !== hoje) return false;
+    if (j.status === 'FT') return false;
+    if (isLigaBloqueada(j.pais, j.competicao)) return false;
+    const oc = parseFloat(j.oddCasa), of = parseFloat(j.oddFora);
+    return (!isNaN(oc) && oc > 1 && oc <= 1.5) || (!isNaN(of) && of > 1 && of <= 1.5);
+  });
+
+  if (candidatos.length === 0) {
+    container.innerHTML = `<div class="text-center text-gray-500 text-[10px] py-6">Nenhum jogo com odd até 1.50 encontrado para hoje. Rode o Motor ou tente outro dia.</div>`;
+    return;
+  }
+
+  container.innerHTML = candidatos.map(j => {
+    const sId = cleanString(j.id || j.mandante + j.visitante);
+    window.alavancagemBank[sId] = j;
+    const oc = parseFloat(j.oddCasa), of = parseFloat(j.oddFora);
+    const favCasa = !isNaN(oc) && oc > 1 && oc <= 1.5;
+    const nomeFav = favCasa ? j.mandante : j.visitante;
+    const oddFav = favCasa ? j.oddCasa : j.oddFora;
+    return `
+    <div class="bg-[#121212] border border-white/5 rounded-2xl p-3">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[10px] font-bold text-white">${esc(j.mandante)} <span class="text-gray-500">x</span> ${esc(j.visitante)}</span>
+        <span class="text-[9px] font-mono text-blue-400">${esc(j.hora || '')}</span>
+      </div>
+      <div class="text-[9px] text-gray-500 mb-2">${esc(j.competicao)} • Favorito: <b class="text-white">${esc(nomeFav)}</b> (Odd ${oddFav})</div>
+      <button onclick="analisarJogoComClaude('${sId}')" class="w-full py-2 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-400 font-bold text-[9px] uppercase tracking-wider">🤖 Analisar com Claude (busca notícias)</button>
+      <div id="claude-box-${sId}" class="mt-2"></div>
+    </div>`;
+  }).join('');
+}
+
 // Filtra a lista completa de oportunidades de um jogo pra faixa da aba ativa:
 // "ativas" (Padrões) = 65% a <80% · "chances" (Grandes Chances) = >=80%
 function filtrarOportunidadesPorAba(oportunidades) {
@@ -2164,6 +2325,11 @@ window.onload = function() {
   const savedGeminiKey = localStorage.getItem('cr7_gemini_key');
   if (savedGeminiKey && document.getElementById('configGeminiKey')) {
     document.getElementById('configGeminiKey').value = savedGeminiKey;
+  }
+
+  const savedClaudeKey = localStorage.getItem('cr7_claude_key');
+  if (savedClaudeKey && document.getElementById('configClaudeKey')) {
+    document.getElementById('configClaudeKey').value = savedClaudeKey;
   }
 
   const scroll = document.getElementById('scrollDatas');
