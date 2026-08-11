@@ -325,7 +325,10 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
 
             const paisStrSegura = String(pais || "").toUpperCase();
             if (compStrSegura.includes("SEGUNDA DIVIS") || compStrSegura.includes("SÉRIE B") || compStrSegura.includes("SERIE B")) {
-              if (!paisStrSegura.includes("BRASIL")) return;
+              // Só passa Série B/Segunda Divisão quando for Brasileirão Série B ou Bundesliga 2
+              const ehBrasileiraoB = paisStrSegura.includes("BRASIL") && compStrSegura.includes("BRASILEIR");
+              const ehBundesliga2 = compStrSegura.includes("BUNDESLIGA") && compStrSegura.includes("2");
+              if (!ehBrasileiraoB && !ehBundesliga2) return;
             }
 
             let mandante = "", visitante = "";
@@ -334,6 +337,11 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
               mandante = teamEls[0].innerText.trim();
               visitante = teamEls[teamEls.length - 1].innerText.trim();
             }
+
+            // Descarta nome de time que na verdade veio como o nome da liga (ex.: "(Premier Soccer League)")
+            const pareceNomeDeLiga = (t: string) => !t || /^\(.*\)$/.test(t) || t.toUpperCase() === compStrSegura;
+            if (pareceNomeDeLiga(mandante)) mandante = "";
+            if (pareceNomeDeLiga(visitante)) visitante = "";
 
             if (!mandante || !visitante) {
               const txts = (linkEl.innerText || "").split("\n").map((s) => s.trim()).filter((t) => t.length > 2 && !/^[\d.,]+$/.test(t));
