@@ -359,13 +359,7 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 
 <div class="apple-card p-5 rounded-3xl border-2 border-red-500/20 shadow-md">
 <h3 class="text-xs font-black text-red-600 uppercase tracking-widest mb-3">💣 Limpeza de Banco Firestore</h3>
-<button onclick="limparBancoFirestore()" class="w-full bg-red-50 hover:bg-red-100 dark:bg-red-900/30 text-red-600 border border-red-200 dark:border-red-500/40 font-bold py-3 rounded-2xl text-xs uppercase tracking-widest transition-colors">LIMPAR COLEÇÃO JOGOS AO VIVO</button>
-<div class="mt-4 p-4 border border-blue-500/30 rounded-xl bg-blue-500/10 text-center">
-    <h3 class="text-sm font-bold text-blue-400 mb-2">Forçar Varredura Agora</h3>
-    <button onclick="forcarTesteMotor()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-500/30 transition-all">
-        🚀 TESTAR MOTOR (DISPARO MANUAL)
-    </button>
-</div>
+<button id="btnLimparBanco" onclick="limparBancoFirestore()" class="w-full bg-red-50 hover:bg-red-100 dark:bg-red-900/30 text-red-600 border border-red-200 dark:border-red-500/40 font-bold py-3 rounded-2xl text-xs uppercase tracking-widest transition-colors">LIMPAR COLEÇÃO JOGOS AO VIVO</button>
 </div>
 </div>
 </main>
@@ -427,10 +421,28 @@ function salvarGeminiKey() {
 
 // Endpoint padrão da IA de alavancagem. Fica configurável porque o modelo/versão
 // do Gemini muda com frequência - trocar aqui não exige mexer no código.
-const GEMINI_URL_PADRAO = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+// O sufixo "-latest" é exigido pela API do Google nesta versão do endpoint.
+const GEMINI_URL_PADRAO = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+
+// Endpoints que já foram padrão antes e não funcionam - se estiverem salvos no
+// localStorage venceriam o novo padrão e o Gemini continuaria quebrado.
+const GEMINI_URLS_OBSOLETAS = ['gemini-2.0-flash:generateContent'];
+
+function ehUrlObsoleta(url) {
+  return !!url && GEMINI_URLS_OBSOLETAS.some(obsoleta => url.includes(obsoleta));
+}
 
 function getGeminiUrl() {
-  return document.getElementById('configGeminiUrl')?.value.trim()
+  const campo = document.getElementById('configGeminiUrl');
+  // Limpa o endpoint obsoleto onde quer que ele esteja - se ficasse salvo no
+  // localStorage voltaria a vencer o padrão no próximo carregamento.
+  if (ehUrlObsoleta(localStorage.getItem('cr7_gemini_url'))) {
+    localStorage.setItem('cr7_gemini_url', GEMINI_URL_PADRAO);
+  }
+  if (campo && ehUrlObsoleta(campo.value)) {
+    campo.value = GEMINI_URL_PADRAO;
+  }
+  return (campo?.value.trim())
       || localStorage.getItem('cr7_gemini_url')
       || GEMINI_URL_PADRAO;
 }
@@ -1935,18 +1947,6 @@ function switchTipsTab(tab) {
   renderizarTips();
 }
 
-async function forcarTesteMotor() {
-    try {
-        await db.collection("configuracoes").doc("motor").set({
-            forcar_leitura: Date.now()
-        }, { merge: true });
-        
-        alert("🚀 Disparo enviado! Olhe o seu terminal, o motor deve começar a rodar imediatamente.");
-    } catch (error) {
-        alert("Erro ao disparar motor: " + error.message);
-    }
-}
-
 async function chamarGeminiAPI(sId) {
   const data = window.matchDataBank[sId];
   if(!data) return;
@@ -2418,12 +2418,40 @@ function gerenciarCaixa(tipo) {
   }
 }
 
-function limparBancoFirestore() {
-  if (confirm("Deseja apagar os dados da coleção jogos_ao_vivo do Firestore?")) {
-    db.collection('jogos_ao_vivo').get().then(snap => {
-      snap.forEach(doc => doc.ref.delete());
-      alert("Coleção zerada!");
-    });
+// A versão anterior disparava os deletes sem esperar e já avisava "Coleção zerada!",
+// então dava sucesso antes de terminar e engolia qualquer erro (não havia catch).
+// Agora apaga em lotes (o Firestore aceita no máximo 500 operações por batch),
+// espera de verdade e só então reporta o total apagado.
+async function limparBancoFirestore() {
+  if (!confirm("Apagar TODOS os jogos da coleção jogos_ao_vivo? Esta ação não pode ser desfeita.")) return;
+
+  const btn = document.getElementById('btnLimparBanco');
+  const textoOriginal = btn ? btn.innerText : '';
+  if (btn) { btn.disabled = true; btn.innerText = 'APAGANDO...'; }
+
+  try {
+    const snap = await db.collection('jogos_ao_vivo').get();
+    if (snap.empty) {
+      mostrarToast("A coleção já estava vazia.", false);
+      return;
+    }
+
+    const docs = snap.docs;
+    const TAMANHO_LOTE = 450;
+    for (let i = 0; i < docs.length; i += TAMANHO_LOTE) {
+      const batch = db.batch();
+      docs.slice(i, i + TAMANHO_LOTE).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      if (btn) btn.innerText = `APAGANDO... ${Math.min(i + TAMANHO_LOTE, docs.length)}/${docs.length}`;
+    }
+
+    todosOsJogos = [];
+    filtrarJogos();
+    mostrarToast(`Coleção zerada! ${docs.length} jogo(s) apagado(s).`);
+  } catch (e) {
+    alert("Erro ao limpar a coleção: " + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerText = textoOriginal; }
   }
 }
 
@@ -2460,6 +2488,7 @@ window.onload = function() {
   const campoGeminiUrl = document.getElementById('configGeminiUrl');
   if (campoGeminiUrl) {
     campoGeminiUrl.value = localStorage.getItem('cr7_gemini_url') || GEMINI_URL_PADRAO;
+    getGeminiUrl(); // troca na hora se o valor salvo for um endpoint obsoleto
   }
 
   const scroll = document.getElementById('scrollDatas');

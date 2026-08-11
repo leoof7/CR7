@@ -5,6 +5,13 @@ import "firebase/compat/firestore";
 import { chromium } from "playwright";
 import { execSync } from "child_process";
 import * as http from "http";
+import * as fs from "fs";
+
+// ⚠️ DEBUG: quando true, o motor abre o Raio-X do PRIMEIRO jogo, salva o HTML
+// da área de dados em debug_raiox.txt e PARA (não sincroniza nada no Firestore).
+// Serve pra descobrir as classes reais dos títulos de seção do site.
+// >>> Volte para false depois de gerar o arquivo. <<<
+const DEBUG_RAIOX = true;
 
 // =========================================================================
 // SERVIDOR WEB
@@ -775,6 +782,45 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
               jsonH2H_ambos = await extrairH2H('h2h', 'H2H');
               jsonH2H_fora = await extrairH2H('away', item.visitante);
             } catch (e) {}
+
+            // ===================== DEBUG DO RAIO-X =====================
+            // Salva o HTML real da área de dados pra podermos ler as classes dos
+            // títulos de seção em vez de adivinhar seletores.
+            if (DEBUG_RAIOX) {
+              console.log("\n🔬 [DEBUG_RAIOX] Capturando HTML do Raio-X deste jogo...");
+              const partes: string[] = [];
+
+              for (const aba of ["Desempenho", "Gols"]) {
+                await clicarAba(aba);
+                const dump = await page.evaluate(() => {
+                  const linhas = Array.from(document.querySelectorAll('.pg-tstable-row'));
+                  if (!linhas.length) {
+                    return { erro: "nenhuma .pg-tstable-row encontrada nesta aba", total: 0, html: "" };
+                  }
+                  // Sobe até o ancestral que contém TODAS as linhas, depois mais 2
+                  // níveis pra garantir que os títulos dos cards venham junto.
+                  let el: any = linhas[0];
+                  while (el.parentElement && !linhas.every(l => el.contains(l))) el = el.parentElement;
+                  for (let i = 0; i < 2 && el.parentElement && el.parentElement !== document.body; i++) {
+                    el = el.parentElement;
+                  }
+                  return { erro: null, total: linhas.length, html: el.outerHTML };
+                });
+
+                console.log(`   • Aba ${aba}: ${dump.total} linha(s)${dump.erro ? " - " + dump.erro : ""}`);
+                partes.push(
+                  `\n\n${"=".repeat(80)}\n=== ABA: ${aba} | linhas encontradas: ${dump.total}${dump.erro ? " | ERRO: " + dump.erro : ""}\n${"=".repeat(80)}\n\n${dump.html}`
+                );
+              }
+
+              const cabecalho = `DEBUG RAIO-X\nJogo: ${item.mandante} x ${item.visitante}\nLiga: ${item.pais} - ${item.competicao}\nURL: ${linkAutenticado}\nGerado em: ${new Date().toISOString()}\n`;
+              fs.writeFileSync("debug_raiox.txt", cabecalho + partes.join(""), "utf8");
+
+              console.log("✅ [DEBUG_RAIOX] Arquivo salvo em: debug_raiox.txt");
+              console.log("🛑 [DEBUG_RAIOX] Motor interrompido (nada foi gravado no Firestore).");
+              console.log("   Envie o arquivo pro Claude e depois volte DEBUG_RAIOX para false.\n");
+              return; // o finally fecha o navegador
+            }
 
             const jsonDesempenho = await extrairTabelaGenerica("Desempenho").catch(() => []);
             const jsonGols = await extrairTabelaGenerica("Gols").catch(() => []);
