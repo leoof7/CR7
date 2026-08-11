@@ -451,27 +451,51 @@ async function testarApisCockpit() {
     }
 }
 
+const AMOSTRA_MINIMA = 3; // descarta frações tipo 1/1, 2/2 (estatisticamente inúteis)
+
+// Só converte pra taxa quando o texto é EXPLICITAMENTE uma taxa ("NN%" ou "a/b").
+// Números soltos (ex.: "3", "92") NÃO são taxa - são contagens/médias brutas e
+// tratá-los como % (ex.: 3 -> 3%, 92 -> 92%) foi a causa de percentuais fabricados
+// que não existem na estatística de origem. Retorna null quando não é taxa válida.
 function parseRateToPercent(rateStr) {
-  if (!rateStr) return 0;
+  if (!rateStr) return null;
   const str = String(rateStr).trim();
   if (str.includes('%')) {
     const num = parseFloat(str.replace('%', ''));
-    return isNaN(num) ? 0 : num / 100;
+    return isNaN(num) ? null : num / 100;
   }
   if (str.includes('/')) {
     const parts = str.split('/');
     const n = parseFloat(parts[0]);
     const d = parseFloat(parts[1]);
-    if (!isNaN(n) && !isNaN(d) && d > 0) return n / d;
+    if (!isNaN(n) && !isNaN(d) && d > 0) {
+      if (d < AMOSTRA_MINIMA) return null; // amostra pequena demais pra confiar
+      return n / d;
+    }
   }
-  const val = parseFloat(str);
-  if (!isNaN(val)) return val > 1 ? val / 100 : val;
-  return 0;
+  return null;
 }
 
 function isValidTipSample(rateStr, minPercentRequired = 0.70) {
   const p = parseRateToPercent(rateStr);
-  return p >= minPercentRequired;
+  return p !== null && p >= minPercentRequired;
+}
+
+// Mercados "de time" (dependem só de um lado) não devem ser misturados com o
+// adversário. Todo o resto é mercado "de jogo" (Over/Under, Ambas Marcam, etc.)
+// e quando vier casa+fora, usamos a MÉDIA dos dois em vez do maior valor - pegar
+// o maior artificialmente infla o % com base no lado mais sortudo da amostra.
+function ehMercadoDeTime(metodo) {
+  const m = (metodo || '').toUpperCase();
+  return m.includes('BACK FAVORITO') || m.includes('LAY ZEBRA') || m.includes('1X2');
+}
+
+function combinarCasaFora(valCasa, valFora, metodo) {
+  const valores = [valCasa, valFora].filter(v => v !== null && !isNaN(v));
+  if (valores.length === 0) return null;
+  if (valores.length === 1) return valores[0];
+  if (ehMercadoDeTime(metodo)) return Math.max(...valores);
+  return (valores[0] + valores[1]) / 2;
 }
 
 function getMethodPillStyle(metodo) {
