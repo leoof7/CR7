@@ -647,7 +647,7 @@ function extrairOportunidadesJogo(j) {
     // Média sempre calculada pelos DOIS times (combinarCasaFora) - nunca usa uma
     // "média" pronta que o site mostra, cuja base de cálculo a gente não controla.
     for (const g of rGols) {
-      if (!g.metrica) continue;
+      if (!g.metrica || isCardOrCornerRule(g.metrica)) continue;
       const mUpper = g.metrica.toUpperCase();
       if (g.tipo === 'relogio') continue;
 
@@ -671,7 +671,7 @@ function extrairOportunidadesJogo(j) {
 
     // =========== 4. DESEMPENHO (Raio-X) - % ou frações ===========
     for (const d of rDesempenho) {
-      if (!d.metrica) continue;
+      if (!d.metrica || isCardOrCornerRule(d.metrica)) continue;
       const mUpper = d.metrica.toUpperCase();
       if (EH_SEQUENCIA_CONDICIONAL.test(mUpper)) continue;
 
@@ -1153,6 +1153,26 @@ function hasM(metrica, keys) {
     return keys.some(k => m.includes(k.toLowerCase()));
 }
 
+// Card com comutador de 2 visões (ex.: Primeiro/Segundo tempo, Marcados/Sofridos).
+// viewGroupId precisa ser único por card pra não embaralhar o toggle de outro card na mesma tela.
+function renderCardToggle(titulo, icon, lc, lf, viewGroupId, labelA, itemsA, labelB, itemsB) {
+    if (!itemsA.length && !itemsB.length) return '';
+    const idA = viewGroupId + '-a', idB = viewGroupId + '-b';
+    const semDados = '<div class="text-center text-gray-500 text-[9px] py-4">Sem dados.</div>';
+    return `
+    <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
+        <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5">
+            <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">${icon}</span> ${titulo}</h4>
+            <div class="flex bg-[#121212] rounded-lg p-1 border border-white/5">
+                <button onclick="window.toggleUiTab(this, '${viewGroupId}', '${idA}')" class="px-3 py-1.5 text-[9px] rounded-md bg-[#3a3a3c] text-white font-bold shadow-sm transition-all uppercase tracking-wider">${labelA}</button>
+                <button onclick="window.toggleUiTab(this, '${viewGroupId}', '${idB}')" class="px-3 py-1.5 text-[9px] rounded-md text-gray-500 hover:text-gray-300 font-bold transition-all uppercase tracking-wider">${labelB}</button>
+            </div>
+        </div>
+        <div id="${idA}" class="${viewGroupId}">${renderCardGrid3Col('', lc, lf, itemsA) || semDados}</div>
+        <div id="${idB}" class="${viewGroupId} hidden">${renderCardGrid3Col('', lc, lf, itemsB) || semDados}</div>
+    </div>`;
+}
+
 let estadoAoVivoAnterior = {};
 
 // Compara o snapshot novo com o anterior e dispara toast pra gol, cartão
@@ -1620,8 +1640,10 @@ function renderizarConteudoModal() {
 
   const objJson = data.json?.principais_json || { confronto: [], tendencias: [], mercados: [] };
   const objRaiox = data.json?.raiox_json || {}; 
-  const rDesempenho = objRaiox.desempenho || [];
-  const rGols = objRaiox.gols || [];
+  // Filtro global contra Escanteios/Cartões (Regra de Ouro) - o site mistura essas
+  // linhas junto com Desempenho/Gols e elas nunca podem aparecer nas abas do app.
+  const rDesempenho = (objRaiox.desempenho || []).filter(x => !isCardOrCornerRule(x.metrica));
+  const rGols = (objRaiox.gols || []).filter(x => x.tipo === 'relogio' || !isCardOrCornerRule(x.metrica));
   
   const rH2H_casa = objRaiox.h2h_casa || [];
   const rH2H_fora = objRaiox.h2h_fora || [];
@@ -1675,9 +1697,20 @@ function renderizarConteudoModal() {
     </div>`;
   } 
   else if (modalSubTabAtual === 'desempenho') {
-    let pAproveitamento=[], pPrimeiroGol=[], pMarcouAcoes=[], pMarcouResult=[], pSofreuAcoes=[], pSofreuResult=[];
+    let pAproveitamento=[], pTempoPrimeiro=[], pTempoSegundo=[], pPrimeiroGol=[], pMarcouAcoes=[], pMarcouResult=[], pSofreuAcoes=[], pSofreuResult=[];
     let sessaoAtual = 'aproveitamento';
-    
+
+    // O site repete Venceu/Perdeu/Empatou em 3 seções sem marcar qual é qual:
+    // temporada inteira, depois "Desempenho por Tempo" (Primeiro), depois (Segundo).
+    // Como nenhuma vem marcada, a única forma de separar é pela ORDEM em que
+    // aparecem: 1ª ocorrência = temporada, 2ª = Primeiro tempo, 3ª = Segundo tempo.
+    const METRICAS_REPETIDAS_POR_TEMPO = ['venceu', 'perdeu', 'empatou'];
+    // Essas outras também se repetem, mas o Card "Desempenho por Tempo" só pede
+    // vitória/empate/derrota - as demais ficam só na 1ª ocorrência (Aproveitamento),
+    // descartando as repetições pra não sujar o card com dado duplicado sem rótulo.
+    const METRICAS_DEDUP_SIMPLES = ['marcou gol', 'sofreu gol', 'gols marcados', 'gols sofridos', 'média gols marcados', 'media gols marcados', 'média gols sofridos', 'media gols sofridos', 'ambas marcam'];
+    const contagemVista = {};
+
     rDesempenho.forEach(x => {
         const m = (x.metrica || "").toLowerCase().trim();
         if (m.includes('total de jogos') || m.includes('pontos por jogo') || m.includes('posse de bola') || m.includes('posição') || m.includes('posicao')) sessaoAtual = 'aproveitamento';
@@ -1691,8 +1724,22 @@ function renderizarConteudoModal() {
             else if (sessaoAtual === 'sofreuAcoes' || sessaoAtual === 'sofreuResult') pSofreuAcoes.push(x);
             return;
         }
-        
-        if (sessaoAtual === 'aproveitamento' && hasM(m, ['total', 'pontos', 'posição', 'posicao', 'venceu', 'perdeu', 'empatou', 'posse', 'marcou gol', 'sofreu gol', 'gols marcados', 'gols sofridos', 'ambas marcam'])) pAproveitamento.push(x);
+
+        if (sessaoAtual === 'aproveitamento') {
+            if (hasM(m, METRICAS_REPETIDAS_POR_TEMPO)) {
+                contagemVista[m] = (contagemVista[m] || 0) + 1;
+                if (contagemVista[m] === 1) pAproveitamento.push(x);
+                else if (contagemVista[m] === 2) pTempoPrimeiro.push(x);
+                else if (contagemVista[m] === 3) pTempoSegundo.push(x);
+                return;
+            }
+            if (hasM(m, METRICAS_DEDUP_SIMPLES)) {
+                contagemVista[m] = (contagemVista[m] || 0) + 1;
+                if (contagemVista[m] === 1) pAproveitamento.push(x);
+                return;
+            }
+            if (hasM(m, ['total', 'pontos', 'posição', 'posicao', 'posse'])) pAproveitamento.push(x);
+        }
         else if (sessaoAtual === 'primeiroGol') pPrimeiroGol.push(x);
         else if (sessaoAtual === 'marcouAcoes') pMarcouAcoes.push(x);
         else if (sessaoAtual === 'marcouResult') pMarcouResult.push(x);
@@ -1702,22 +1749,44 @@ function renderizarConteudoModal() {
 
     corpo = `
         ${renderCardGrid('📈 Aproveitamento', data.lc, data.lf, pAproveitamento)}
+        ${renderCardToggle('Desempenho por Tempo', '⏱️', data.lc, data.lf, 'tempo-desemp-view', 'Primeiro', pTempoPrimeiro, 'Segundo', pTempoSegundo)}
         ${renderCardGrid('🏁 Primeiro Gol', data.lc, data.lf, pPrimeiroGol)}
         ${renderCardComSeparador('Quando Marcou Primeiro', '🟢', data.lc, data.lf, pMarcouAcoes, pMarcouResult)}
         ${renderCardComSeparador('Quando Sofreu Primeiro', '🔴', data.lc, data.lf, pSofreuAcoes, pSofreuResult)}
     `;
-  } 
+  }
   else if (modalSubTabAtual === 'gols') {
     const dNormal = rGols.filter(x => x.tipo !== 'relogio');
-    
-    const itemsGolsBase = dNormal.filter(x => ['Gols Marcados', 'Gols Sofridos', 'Média Gols Marcados', 'Média Gols Sofridos', 'Média total de Gols'].includes(x.metrica));
+
+    // Mesmo problema do Desempenho: o site repete Gols Marcados/Sofridos (e médias)
+    // em até 3 seções sem marcar qual é qual - geral da temporada, Primeiro tempo,
+    // Segundo tempo. 1ª ocorrência = geral, 2ª = Primeiro, 3ª = Segundo.
+    const METRICAS_GOLS_REPETIDAS = ['gols marcados', 'gols sofridos', 'média gols marcados', 'media gols marcados', 'média gols sofridos', 'media gols sofridos'];
+    const contagemGols = {};
+    const itemsGolsBase = [], itemsTempoPrimeiro = [], itemsTempoSegundo = [];
+
+    dNormal.forEach(x => {
+      const m = (x.metrica || '').toLowerCase().trim();
+      if (hasM(m, METRICAS_GOLS_REPETIDAS)) {
+        contagemGols[m] = (contagemGols[m] || 0) + 1;
+        if (contagemGols[m] === 1) itemsGolsBase.push(x);
+        else if (contagemGols[m] === 2) itemsTempoPrimeiro.push(x);
+        else if (contagemGols[m] === 3) itemsTempoSegundo.push(x);
+      } else if (m === 'média total de gols' || m === 'media total de gols') {
+        itemsGolsBase.push(x);
+      }
+    });
+
     const itemsOvers = dNormal.filter(x => x.metrica && x.metrica.includes('Over') && x.media);
     const itemsUnders = dNormal.filter(x => x.metrica && x.metrica.includes('Under') && x.media);
     const itemsFinalizacoes = dNormal.filter(x => ['Chutes por Jogo', 'Chutes no Alvo', 'Chutes para Marcar', 'Chutes no Alvo para Marcar', 'xG - A Favor', 'xG - Contra'].includes(x.metrica));
+    // Card 4 - reaproveita a mesma base já deduplicada (1ª ocorrência), só separa por rótulo
+    const itemsMarcados = itemsGolsBase.filter(x => hasM(x.metrica, ['marcados']));
+    const itemsSofridos = itemsGolsBase.filter(x => hasM(x.metrica, ['sofridos']));
 
     corpo = `
     ${renderCardGrid('⚽ Gols Gerais', data.lc, data.lf, itemsGolsBase)}
-    
+
     <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
         <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5">
             <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">🎯</span> Total de Gols</h4>
@@ -1733,12 +1802,16 @@ function renderizarConteudoModal() {
             ${renderCardGrid3Col('', data.lc, data.lf, itemsUnders)}
         </div>
     </div>
-    
+
+    ${renderCardToggle('Gols por Tempo', '⏱️', data.lc, data.lf, 'tempo-gols-view', 'Primeiro', itemsTempoPrimeiro, 'Segundo', itemsTempoSegundo)}
+
+    ${renderCardToggle('Gols Marcados e Sofridos', '🥅', data.lc, data.lf, 'marcsof-view', 'Marcados', itemsMarcados, 'Sofridos', itemsSofridos)}
+
     ${renderRelogio('Relógio de Gols', rGols)}
 
     ${renderCardGrid('🎯 Finalizações', data.lc, data.lf, itemsFinalizacoes)}
     `;
-  } 
+  }
   else if (modalSubTabAtual === 'destaques') {
     const mercadosRelevantes = ['Resultado', '0.5 Gols HT', 'Over 2.5 Gols'];
     const mercadosFiltrados = objJson.mercados.filter(m => mercadosRelevantes.some(rm => m.nome.includes(rm)));
