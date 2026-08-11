@@ -2491,17 +2491,41 @@ async function limparBancoFirestore() {
     }
 
     const docs = snap.docs;
+    // Com experimentalForceLongPolling ligado (ver db.settings), o commit chega a
+    // gravar no servidor mas a promessa às vezes não resolve - era isso que deixava
+    // o botão preso em "APAGANDO...". Por isso damos um tempo limite a cada lote e,
+    // no fim, conferimos no servidor o que REALMENTE sobrou, em vez de confiar na
+    // promessa. Assim a mensagem reflete o que aconteceu de fato.
+    const comLimite = (promessa, ms) => Promise.race([
+      promessa.then(() => 'ok'),
+      new Promise(r => setTimeout(() => r('timeout'), ms))
+    ]);
+
     const TAMANHO_LOTE = 450;
+    let houveTimeout = false;
+
     for (let i = 0; i < docs.length; i += TAMANHO_LOTE) {
+      const fatia = docs.slice(i, i + TAMANHO_LOTE);
+      if (btn) btn.innerText = `APAGANDO... ${Math.min(i + fatia.length, docs.length)}/${docs.length}`;
+
       const batch = db.batch();
-      docs.slice(i, i + TAMANHO_LOTE).forEach(d => batch.delete(d.ref));
-      await batch.commit();
-      if (btn) btn.innerText = `APAGANDO... ${Math.min(i + TAMANHO_LOTE, docs.length)}/${docs.length}`;
+      fatia.forEach(d => batch.delete(d.ref));
+      if (await comLimite(batch.commit(), 15000) === 'timeout') houveTimeout = true;
     }
+
+    // Fonte da verdade: o estado real da coleção no servidor.
+    const restante = (await db.collection('jogos_ao_vivo').get()).size;
+    const apagados = docs.length - restante;
 
     todosOsJogos = [];
     filtrarJogos();
-    mostrarToast(`Coleção zerada! ${docs.length} jogo(s) apagado(s).`);
+
+    if (restante === 0) {
+      mostrarToast(`Coleção zerada! ${apagados} jogo(s) apagado(s).`);
+    } else {
+      mostrarToast(`${apagados} apagado(s), ${restante} ainda restam. Clique de novo.`, false);
+    }
+    if (houveTimeout) console.warn('Algum lote excedeu o tempo limite, mas a exclusão foi verificada no servidor.');
   } catch (e) {
     console.error('Falha ao limpar a coleção:', e);
     mostrarToast(`Erro ao limpar: ${e.code || ''} ${e.message}`, false);

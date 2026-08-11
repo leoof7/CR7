@@ -234,6 +234,17 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
 
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
+
+    // O tsx/esbuild compila as funções passadas ao page.evaluate com o helper
+    // __name() (opção keepNames). Esse helper só existe no escopo do Node, não
+    // dentro da página - sem este shim o evaluate quebra com
+    // "ReferenceError: __name is not defined".
+    // Passado como string de propósito: se fosse uma função TS, o próprio esbuild
+    // poderia instrumentá-la com __name e o shim quebraria antes de existir.
+    await context.addInitScript({
+      content: "if (typeof window.__name === 'undefined') { window.__name = function (fn) { return fn; }; }"
+    });
+
     const page = await context.newPage();
 
     const diasParaRaspar = ['hoje', 'ontem', 'amanha'];
