@@ -128,7 +128,7 @@ input:focus, select:focus, textarea:focus { border-color: #007aff; }
 <div class="flex justify-between items-center mb-1 pt-2">
 <h2 class="text-xl font-bold tracking-tight text-gray-900 dark:text-white">Smart Tips (A.I)</h2>
 <div class="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-full border border-black/5 dark:border-white/5">
-<button onclick="switchTipsTab('ativas')" id="btnTipsAtivas" class="px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-bold shadow-sm transition-all">IA Padrões (≥70%)</button>
+<button onclick="switchTipsTab('ativas')" id="btnTipsAtivas" class="px-3 py-1 bg-blue-600 text-white rounded-full text-[10px] font-bold shadow-sm transition-all">Padrões (65-80%)</button>
 <button onclick="switchTipsTab('chances')" id="btnTipsHistorico" class="px-3 py-1 bg-transparent text-gray-600 dark:text-gray-400 rounded-full text-[10px] font-bold transition-all">Grandes Chances (≥80%)</button>
 </div>
 </div>
@@ -500,6 +500,9 @@ function combinarCasaFora(valCasa, valFora, metodo) {
 
 function getMethodPillStyle(metodo) {
   const m = (metodo || '').toUpperCase();
+  if (m.includes('OVER 0.5 2T')) return 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40 shadow-sm';
+  if (m.includes('OVER LIMITE 2T')) return 'bg-violet-500/20 text-violet-300 border border-violet-500/40 shadow-sm';
+  if (m.includes('UNDER LIMITE 2T')) return 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm';
   if (m.includes('OVER 0.5 HT')) return 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm';
   if (m.includes('OVER A FRENTE')) return 'bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm';
   if (m.includes('OVER LIMITE HT')) return 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm';
@@ -512,7 +515,20 @@ function getMethodPillStyle(metodo) {
   return 'bg-purple-600/20 text-purple-300 border border-purple-500/40 shadow-sm';
 }
 
-function extrairOportunidadeJogo(j, requiredRate = 0.70) {
+// Quando a linha vem do toggle "Segundo" (2º tempo), troca o rótulo "HT" por "2T"
+// pra não exibir um mercado de 2º tempo como se fosse de 1º tempo.
+function ajustarMetodoPorPeriodo(metodo, periodo) {
+  if (periodo !== '2T') return metodo;
+  return metodo.replace('HT', '2T');
+}
+
+const OPORTUNIDADE_PISO = 0.65; // piso mínimo global - abaixo disso nem entra na lista
+
+// Retorna a lista COMPLETA de oportunidades válidas (>= 65%) do jogo, cada uma
+// carregando "fonte" (de onde no site veio o número) pra ser auditável no card.
+// Substitui a versão antiga que devolvia só a "melhor" oportunidade.
+function extrairOportunidadesJogo(j) {
+  const oportunidades = [];
   try {
     let pkt = {};
     try { pkt = JSON.parse(j.eventosJSON || '{}'); } catch(e){}
@@ -522,14 +538,20 @@ function extrairOportunidadeJogo(j, requiredRate = 0.70) {
     const rGols = pkt.raiox_json?.gols || [];
     const rDesempenho = pkt.raiox_json?.desempenho || [];
 
-    // Acumula TODAS as oportunidades encontradas e retorna a melhor
-    const oportunidades = [];
+    const addOportunidade = (metodo, regra, rateVal, rateStr, origem, periodo) => {
+      if (rateVal === null || rateVal < OPORTUNIDADE_PISO) return;
+      oportunidades.push({
+        metodo, regra, rateStr,
+        percent: Math.round(rateVal * 100),
+        fonte: { origem, rotulo: regra, valorBruto: rateStr },
+        tempo: periodo || null
+      });
+    };
 
     // =========== 1. TENDÊNCIAS (rate vem como "3/5", "7/10", "80%", etc.) ===========
     for (const t of tendencias) {
       if (isCardOrCornerRule(t.regra)) continue;
       const rateVal = parseRateToPercent(t.rate);
-      if (rateVal < 0.50) continue; // piso mínimo = 50%
       const rUpper = (t.regra || '').toUpperCase();
       let metodo = '';
 
@@ -543,14 +565,13 @@ function extrairOportunidadeJogo(j, requiredRate = 0.70) {
       else if (rUpper.includes('GOL') || rUpper.includes('MARCA')) metodo = 'OVER LIMITE FT';
       else metodo = 'OVER LIMITE FT';
 
-      oportunidades.push({ metodo, regra: t.regra, rateStr: t.rate, percent: Math.round(rateVal * 100) });
+      addOportunidade(metodo, t.regra, rateVal, t.rate, 'Tendências Recentes');
     }
 
     // =========== 2. CONFRONTO DIRETO ===========
     for (const c of confronto) {
       if (isCardOrCornerRule(c.metrica)) continue;
       const rateVal = parseRateToPercent(c.valor);
-      if (rateVal < 0.50) continue;
       const mUpper = (c.metrica || '').toUpperCase();
       let metodo = '';
 
@@ -560,22 +581,14 @@ function extrairOportunidadeJogo(j, requiredRate = 0.70) {
       else if (mUpper.includes('VITÓRIA') || mUpper.includes('VITORIA') || mUpper.includes('SEM DERROTA')) metodo = 'BACK FAVORITO';
       else metodo = 'OVER LIMITE FT';
 
-      oportunidades.push({ metodo, regra: c.metrica, rateStr: c.valor, percent: Math.round(rateVal * 100) });
+      addOportunidade(metodo, c.metrica, rateVal, c.valor, 'Confronto Direto');
     }
 
-    // =========== 3. GOLS (Raio-X) - valores numéricos e % ===========
+    // =========== 3. GOLS (Raio-X) - só aceita valores que sejam % ou fração reais ===========
     for (const g of rGols) {
       if (!g.metrica) continue;
       const mUpper = g.metrica.toUpperCase();
       if (g.tipo === 'relogio') continue;
-
-      // Tenta extrair valor útil de casa, fora ou media
-      const valCasa = parseRateToPercent(g.casa);
-      const valFora = parseRateToPercent(g.fora);
-      const valMedia = parseRateToPercent(g.media);
-      const melhorVal = Math.max(valCasa, valFora, valMedia);
-
-      if (melhorVal < 0.50) continue;
 
       let metodo = '';
       if (mUpper.includes('OVER 0.5') && mUpper.includes('HT')) metodo = 'OVER 0.5 HT';
@@ -583,10 +596,18 @@ function extrairOportunidadeJogo(j, requiredRate = 0.70) {
       else if (mUpper.includes('OVER 1.5') || mUpper.includes('OVER 2.5') || mUpper.includes('OVER 3.5')) metodo = 'OVER LIMITE FT';
       else if (mUpper.includes('UNDER') && (mUpper.includes('HT') || mUpper.includes('1'))) metodo = 'UNDER LIMITE HT';
       else if (mUpper.includes('UNDER 2.5') || mUpper.includes('UNDER 3.5')) metodo = 'UNDER LIMITE 2ºT';
-      else if (mUpper.includes('MÉDIA') || mUpper.includes('MEDIA') || mUpper.includes('GOLS MARCADOS')) metodo = 'OVER LIMITE FT';
-      else continue;
+      else if (mUpper.includes('MÉDIA') || mUpper.includes('MEDIA')) metodo = 'OVER LIMITE FT';
+      else continue; // "Gols Marcados"/"Gols Sofridos" brutos (contagens, não taxa) ficam de fora daqui
 
-      oportunidades.push({ metodo, regra: g.metrica, rateStr: `${Math.round(melhorVal * 100)}%`, percent: Math.round(melhorVal * 100) });
+      metodo = ajustarMetodoPorPeriodo(metodo, g.periodo);
+
+      const valCasa = parseRateToPercent(g.casa);
+      const valFora = parseRateToPercent(g.fora);
+      const valMedia = parseRateToPercent(g.media);
+      const combinado = valMedia !== null ? valMedia : combinarCasaFora(valCasa, valFora, metodo);
+      const rateStrOrigem = valMedia !== null ? g.media : `${g.casa ?? ''} / ${g.fora ?? ''}`;
+
+      addOportunidade(metodo, g.metrica, combinado, rateStrOrigem, 'Gols', g.periodo);
     }
 
     // =========== 4. DESEMPENHO (Raio-X) - % ou frações ===========
@@ -594,40 +615,45 @@ function extrairOportunidadeJogo(j, requiredRate = 0.70) {
       if (!d.metrica) continue;
       const mUpper = d.metrica.toUpperCase();
 
-      const valCasa = parseRateToPercent(d.casa);
-      const valFora = parseRateToPercent(d.fora);
-      const melhorVal = Math.max(valCasa, valFora);
-
-      if (melhorVal < 0.50) continue;
-
       let metodo = '';
       if (mUpper.includes('MARCOU PRIMEIRO') || mUpper.includes('PRIMEIRO GOL')) metodo = 'OVER 0.5 HT';
       else if (mUpper.includes('VENCEU APÓS ABRIR') || mUpper.includes('VENCEU')) metodo = 'BACK FAVORITO';
       else if (mUpper.includes('AMPLIOU') || mUpper.includes('SOFREU EMPATE')) metodo = 'OVER A FRENTE HT';
       else if (mUpper.includes('VIROU') || mUpper.includes('BUSCOU')) metodo = 'LAY ZEBRA';
       else if (mUpper.includes('POSSE') || mUpper.includes('POSIÇÃO') || mUpper.includes('POSICAO')) continue;
+      else if (mUpper.includes('MARCOU GOL') || mUpper.includes('SOFREU GOL')) metodo = mUpper.includes('SOFREU') ? 'OVER A FRENTE HT' : 'OVER 0.5 HT';
       else continue;
 
-      oportunidades.push({ metodo, regra: d.metrica, rateStr: `${Math.round(melhorVal * 100)}%`, percent: Math.round(melhorVal * 100) });
+      metodo = ajustarMetodoPorPeriodo(metodo, d.periodo);
+
+      const valCasa = parseRateToPercent(d.casa);
+      const valFora = parseRateToPercent(d.fora);
+      const combinado = combinarCasaFora(valCasa, valFora, metodo);
+
+      addOportunidade(metodo, d.metrica, combinado, `${d.casa ?? ''} / ${d.fora ?? ''}`, 'Desempenho', d.periodo);
     }
 
-    // =========== 5. FILTRAR e RETORNAR A MELHOR ===========
-    // Filtra pela taxa mínima exigida
-    const validas = oportunidades.filter(o => o.percent >= Math.round(requiredRate * 100));
-    if (validas.length > 0) {
-      validas.sort((a, b) => b.percent - a.percent);
-      return validas[0];
-    }
+    // =========== 5. DEDUP + ORDENA ===========
+    const vistos = new Set();
+    const unicas = [];
+    oportunidades.sort((a, b) => b.percent - a.percent).forEach(o => {
+      const chave = o.metodo + '|' + o.regra;
+      if (vistos.has(chave)) return;
+      vistos.add(chave);
+      unicas.push(o);
+    });
 
-    // =========== 6. FALLBACK: ODDS (sem dados stat suficientes) ===========
+    if (unicas.length > 0) return unicas;
+
+    // =========== 6. FALLBACK: ODDS (sem dados stat suficientes p/ nenhum mercado) ===========
     const oddC = parseFloat(j.oddCasa);
     const oddF = parseFloat(j.oddFora);
 
     if (!isNaN(oddC) && oddC >= 1.10 && oddC <= 1.70) {
-      return { metodo: 'BACK FAVORITO', regra: `Favorito em Casa: ${j.mandante} (Odd ${oddC.toFixed(2)})`, rateStr: '75%', percent: 75 };
+      return [{ metodo: 'BACK FAVORITO', regra: `Favorito em Casa: ${j.mandante} (Odd ${oddC.toFixed(2)})`, rateStr: `Odd ${oddC.toFixed(2)}`, percent: 75, fonte: { origem: 'Odds de Mercado', rotulo: `Odd casa ${oddC.toFixed(2)}`, valorBruto: String(oddC) }, tempo: null }];
     }
     if (!isNaN(oddF) && oddF >= 1.10 && oddF <= 1.70) {
-      return { metodo: 'BACK FAVORITO', regra: `Favorito Fora: ${j.visitante} (Odd ${oddF.toFixed(2)})`, rateStr: '75%', percent: 75 };
+      return [{ metodo: 'BACK FAVORITO', regra: `Favorito Fora: ${j.visitante} (Odd ${oddF.toFixed(2)})`, rateStr: `Odd ${oddF.toFixed(2)}`, percent: 75, fonte: { origem: 'Odds de Mercado', rotulo: `Odd fora ${oddF.toFixed(2)}`, valorBruto: String(oddF) }, tempo: null }];
     }
 
     // Odds desiguais mas não extremas -> possível 1X2
@@ -636,22 +662,22 @@ function extrairOportunidadeJogo(j, requiredRate = 0.70) {
       if (diff >= 0.50 && Math.min(oddC, oddF) <= 2.20) {
         const fav = oddC < oddF ? j.mandante : j.visitante;
         const favOdd = oddC < oddF ? oddC : oddF;
-        return { metodo: '1X2', regra: `Favoritismo claro: ${fav} (Odd ${favOdd.toFixed(2)})`, rateStr: '70%', percent: 70 };
+        return [{ metodo: '1X2', regra: `Favoritismo claro: ${fav} (Odd ${favOdd.toFixed(2)})`, rateStr: `Odd ${favOdd.toFixed(2)}`, percent: 70, fonte: { origem: 'Odds de Mercado', rotulo: `Diferença de odds`, valorBruto: `${oddC} x ${oddF}` }, tempo: null }];
       }
     }
 
     // Odds altas de ambos -> possível Lay Zebra
     if (!isNaN(oddC) && !isNaN(oddF) && oddC >= 3.50 && oddF >= 3.50) {
-      return { metodo: 'LAY ZEBRA', regra: `Empate provável: Odds equilibradas altas`, rateStr: '70%', percent: 70 };
+      return [{ metodo: 'LAY ZEBRA', regra: `Empate provável: Odds equilibradas altas`, rateStr: `${oddC} / ${oddF}`, percent: 70, fonte: { origem: 'Odds de Mercado', rotulo: 'Odds equilibradas altas', valorBruto: `${oddC} x ${oddF}` }, tempo: null }];
     }
 
     // =========== 7. FALLBACK FINAL: DESTAQUE ===========
     if (j.isDestaque) {
-      return { metodo: 'OVER LIMITE FT', regra: 'Confluência Estatística em Jogo Destaque', rateStr: '70%', percent: 70 };
+      return [{ metodo: 'OVER LIMITE FT', regra: 'Confluência Estatística em Jogo Destaque', rateStr: '—', percent: 70, fonte: { origem: 'Destaque Editorial', rotulo: 'Jogo marcado como destaque na fonte', valorBruto: '—' }, tempo: null }];
     }
-  } catch (e) { console.warn('Erro em extrairOportunidadeJogo:', e); }
+  } catch (e) { console.warn('Erro em extrairOportunidadesJogo:', e); }
 
-  return null;
+  return oportunidades;
 }
 
 function traduzirLinhaSegura(regra, oddC, oddF) {
@@ -667,25 +693,66 @@ function traduzirLinhaSegura(regra, oddC, oddF) {
   return regra;
 }
 
-function validarGreenRed(metodo, gc, gf) {
-  const m = (metodo || '').toUpperCase();
-  const gcNum = parseInt(gc) || 0;
-  const gfNum = parseInt(gf) || 0;
-  const total = gcNum + gfNum;
-  // OVER
-  if (m.includes('OVER LIMITE FT') || m.includes('OVER 2.5') || m.includes('MAIS DE 2.5')) return total >= 3;
-  if (m.includes('OVER 0.5 HT')) return total >= 1;
-  if (m.includes('OVER LIMITE HT') || m.includes('OVER 1.5') || m.includes('MAIS DE 1.5')) return total >= 2;
-  if (m.includes('OVER A FRENTE')) return total >= 1;
-  // UNDER
-  if (m.includes('UNDER LIMITE 2') || m.includes('UNDER 2.5') || m.includes('MENOS DE 2.5')) return total <= 2;
-  if (m.includes('UNDER LIMITE HT') || m.includes('UNDER 1.5')) return total <= 1;
-  if (m.includes('UNDER A FRENTE')) return total <= 1;
-  // RESULTADO
-  if (m.includes('BACK FAVORITO') || m.includes('1X2')) return gcNum !== gfNum;
-  if (m.includes('LAY ZEBRA')) return gcNum !== gfNum;
-  if (m.includes('AMBAS') || m.includes('BTTS')) return gcNum > 0 && gfNum > 0;
-  return total > 0;
+// Extrai a linha numérica exata citada na regra/método (ex.: "Mais de 2.5 Gols" -> 2.5),
+// pra validar Green/Red contra o número real do mercado em vez de um balde genérico.
+function extrairLinhaNumerica(texto) {
+  if (!texto) return null;
+  const m = String(texto).match(/(\d+(?:[.,]\d+)?)/);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+
+function passaLinhaOver(total, linha, padrao) {
+  const l = (linha !== null && linha !== undefined) ? linha : padrao;
+  return total > l;
+}
+function passaLinhaUnder(total, linha, padrao) {
+  const l = (linha !== null && linha !== undefined) ? linha : padrao;
+  return total < l;
+}
+
+// Valida Green/Red de UMA oportunidade específica contra o placar real do jogo.
+// Retorna true (green), false (red) ou null (não dá pra validar ainda - ex.:
+// mercado de HT/2ºT real sem o placar do intervalo capturado pelo motor).
+function validarGreenRed(opp, j) {
+  if (!opp) return null;
+  const metodo = (opp.metodo || '').toUpperCase();
+  const gcNum = parseInt(j.golsCasa) || 0;
+  const gfNum = parseInt(j.golsFora) || 0;
+  const totalFT = gcNum + gfNum;
+  const linha = extrairLinhaNumerica(opp.regra) ?? extrairLinhaNumerica(opp.metodo);
+
+  const temHT = j.golsHTCasa !== undefined && j.golsHTCasa !== null && j.golsHTFora !== undefined && j.golsHTFora !== null;
+  const totalHT = temHT ? (parseInt(j.golsHTCasa) || 0) + (parseInt(j.golsHTFora) || 0) : null;
+  const total2T = temHT ? totalFT - totalHT : null;
+
+  const eh2TReal = opp.tempo === '2T' || metodo.endsWith(' 2T') || metodo.includes('2T-');
+  const ehHTReal = !eh2TReal && metodo.includes('HT') && !metodo.includes('A FRENTE');
+
+  if (ehHTReal) {
+    if (!temHT) return null; // aguardando placar do intervalo (motor ainda não capturou)
+    if (metodo.includes('UNDER')) return passaLinhaUnder(totalHT, linha, 1.5);
+    return passaLinhaOver(totalHT, linha, 0.5);
+  }
+
+  if (eh2TReal) {
+    if (!temHT) return null;
+    if (metodo.includes('UNDER')) return passaLinhaUnder(total2T, linha, 1.5);
+    return passaLinhaOver(total2T, linha, 0.5);
+  }
+
+  // Mercados de resultado (não são linha de gols)
+  if (metodo.includes('BACK FAVORITO') || metodo.includes('1X2')) return gcNum !== gfNum;
+  if (metodo.includes('LAY ZEBRA')) return gcNum !== gfNum;
+  if (metodo.includes('AMBAS') || metodo.includes('BTTS')) return gcNum > 0 && gfNum > 0;
+  if (metodo.includes('A FRENTE')) return passaLinhaOver(totalFT, linha, 1);
+
+  // Mercados numéricos de FT (rótulo "HT"/"2ºT" legado que na origem sempre comparou contra o total FT)
+  if (metodo.includes('UNDER')) return passaLinhaUnder(totalFT, linha, 2.5);
+  if (metodo.includes('OVER')) return passaLinhaOver(totalFT, linha, 2.5);
+
+  return totalFT > 0;
 }
 
 function getCountryPillClass(pais) {
