@@ -100,6 +100,21 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 </div>
 </div>
 
+<!-- Confirmação própria: o confirm() nativo é suprimido em painéis embutidos e
+     em alguns webviews mobile, e ali ele retorna false silenciosamente. -->
+<div id="confirmModal" class="fixed inset-0 z-[250] hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+<div class="bg-white dark:bg-[#1c1c1e] rounded-3xl w-11/12 max-w-sm shadow-2xl border border-white/10 overflow-hidden">
+<div class="p-5">
+<h3 id="confirmTitulo" class="font-black uppercase tracking-widest text-xs text-red-500 mb-2">Confirmar</h3>
+<p id="confirmMensagem" class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"></p>
+</div>
+<div class="flex gap-2 p-4 pt-0">
+<button id="confirmCancelar" class="flex-1 py-3 rounded-2xl bg-gray-100 dark:bg-[#2c2c2e] text-gray-600 dark:text-gray-300 font-bold text-[11px] uppercase tracking-wider">Cancelar</button>
+<button id="confirmOk" class="flex-1 py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] uppercase tracking-wider">Confirmar</button>
+</div>
+</div>
+</div>
+
 <header class="p-5 pt-8 flex justify-between items-center sticky top-0 z-40 apple-glass-light border-b-0">
 <div class="flex items-center gap-2">
 <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center font-black text-white text-sm shadow-[0_2px_10px_rgba(37,99,235,0.3)]">7</div>
@@ -2418,12 +2433,51 @@ function gerenciarCaixa(tipo) {
   }
 }
 
+// Confirmação in-app que devolve uma Promise<boolean>. Substitui o confirm()
+// nativo, que em painéis embutidos/webviews é auto-dispensado e retorna false -
+// fazendo a ação abortar em silêncio, sem mensagem nenhuma pro usuário.
+function confirmarAcao(titulo, mensagem, textoOk = 'Confirmar') {
+  return new Promise(resolve => {
+    const modal = document.getElementById('confirmModal');
+    const btnOk = document.getElementById('confirmOk');
+    const btnCancelar = document.getElementById('confirmCancelar');
+
+    // Sem o modal no DOM, cai no confirm() nativo pra nunca travar a ação.
+    if (!modal || !btnOk || !btnCancelar) return resolve(window.confirm(mensagem));
+
+    document.getElementById('confirmTitulo').innerText = titulo;
+    document.getElementById('confirmMensagem').innerText = mensagem;
+    btnOk.innerText = textoOk;
+
+    const fechar = (resposta) => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      btnOk.onclick = null;
+      btnCancelar.onclick = null;
+      modal.onclick = null;
+      resolve(resposta);
+    };
+
+    btnOk.onclick = () => fechar(true);
+    btnCancelar.onclick = () => fechar(false);
+    modal.onclick = (e) => { if (e.target === modal) fechar(false); };
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  });
+}
+
 // A versão anterior disparava os deletes sem esperar e já avisava "Coleção zerada!",
 // então dava sucesso antes de terminar e engolia qualquer erro (não havia catch).
 // Agora apaga em lotes (o Firestore aceita no máximo 500 operações por batch),
 // espera de verdade e só então reporta o total apagado.
 async function limparBancoFirestore() {
-  if (!confirm("Apagar TODOS os jogos da coleção jogos_ao_vivo? Esta ação não pode ser desfeita.")) return;
+  const ok = await confirmarAcao(
+    '💣 Limpar banco',
+    'Apagar TODOS os jogos da coleção jogos_ao_vivo? Esta ação não pode ser desfeita.',
+    'Apagar tudo'
+  );
+  if (!ok) return;
 
   const btn = document.getElementById('btnLimparBanco');
   const textoOriginal = btn ? btn.innerText : '';
@@ -2449,7 +2503,8 @@ async function limparBancoFirestore() {
     filtrarJogos();
     mostrarToast(`Coleção zerada! ${docs.length} jogo(s) apagado(s).`);
   } catch (e) {
-    alert("Erro ao limpar a coleção: " + e.message);
+    console.error('Falha ao limpar a coleção:', e);
+    mostrarToast(`Erro ao limpar: ${e.code || ''} ${e.message}`, false);
   } finally {
     if (btn) { btn.disabled = false; btn.innerText = textoOriginal; }
   }
