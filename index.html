@@ -53,6 +53,31 @@ input:focus, select:focus, textarea:focus { border-color: #007aff; }
 .pill-mundo { background-color: #334155 !important; color: #f8fafc !important; font-weight: 900; }
 
 .ai-prompt-box { background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; color: #cbd5e1; border-radius: 1rem; padding: 1.25rem; font-size: 0.75rem; text-align: left; }
+
+/* ===== REDESIGN "FIELD" (broadcast de estádio, acento azul) — paleta global =====
+   Não mexe em pill-*, verde/vermelho de resultado ou azul de destaque (semântica intacta). */
+body.dark-theme { background: radial-gradient(120% 35% at 50% -5%, rgba(58,168,255,.14) 0%, rgba(10,16,12,0) 55%), #0a100c; }
+body.dark-theme .apple-card { background-color: #141c17; border-color: rgba(58,168,255,.14); border-top: 2px solid rgba(58,168,255,.55); }
+body.dark-theme .bg-gray-50 { background-color: #0d1310; border-color: rgba(58,168,255,.12); }
+body.dark-theme .bg-gray-100 { background-color: #182019; border-color: transparent; }
+body.dark-theme .apple-glass-light { background: rgba(13,19,16,.92); border-top: 1px solid rgba(58,168,255,.18); }
+body.dark-theme input, body.dark-theme select, body.dark-theme textarea { background-color: #182019; border-color: rgba(58,168,255,.14); }
+
+.bg-\[\#1c1c1e\] { background-color: #141c17 !important; }
+.bg-\[\#121212\] { background-color: #0d1310 !important; }
+.bg-\[\#2c2c2e\] { background-color: #182019 !important; }
+.bg-\[\#3a3a3c\] { background-color: #1e2a22 !important; }
+.border-white\/5 { border-color: rgba(58,168,255,.10) !important; }
+.border-white\/10 { border-color: rgba(58,168,255,.18) !important; }
+
+.text-amber-300, .text-amber-400, .text-amber-500 { color: #3aa8ff !important; }
+.bg-amber-400, .bg-amber-500, .bg-amber-600 { background-color: #3aa8ff !important; }
+.border-amber-500 { border-color: #3aa8ff !important; }
+
+.rounded-3xl { border-radius: 14px !important; }
+.rounded-2xl { border-radius: 10px !important; }
+
+.ai-prompt-box { background: linear-gradient(145deg, #182019 0%, #0d1310 100%) !important; border: 1px solid rgba(58,168,255,.22) !important; border-left: 3px solid #3aa8ff !important; color: #dce7e0 !important; }
 </style>
 </head>
 <body class="pb-28 max-w-lg mx-auto min-h-screen relative dark-theme">
@@ -769,17 +794,37 @@ function getCountryPillClass(pais) {
   return 'pill-mundo';
 }
 
+const PAISES_TOP5_EUROPA = ['INGLATERRA','ESPANHA','ITÁLIA','ITALIA','ALEMANHA','FRANÇA','FRANCA'];
 const PAISES_EUROPA = ['ALEMANHA','ESPANHA','INGLATERRA','ITÁLIA','ITALIA','FRANÇA','FRANCA','PORTUGAL','HOLANDA','PAÍSES BAIXOS','PAISES BAIXOS','BÉLGICA','BELGICA','ÁUSTRIA','AUSTRIA','SUÍÇA','SUICA','ESCÓCIA','ESCOCIA','GRÉCIA','GRECIA','TURQUIA','RÚSSIA','RUSSIA','UCRÂNIA','UCRANIA','SUÉCIA','SUECIA','NORUEGA','DINAMARCA','FINLÂNDIA','FINLANDIA','POLÔNIA','POLONIA','BULGÁRIA','BULGARIA','ESLOVÁQUIA','ESLOVAQUIA','ISLÂNDIA','ISLANDIA','SÉRVIA','SERVIA','CROÁCIA','CROACIA','ROMÊNIA','ROMENIA','HUNGRIA','IRLANDA','GALES','EUROPA'];
-function getPrioridadeRegiao(pais) {
-  const p = (pais || '').toUpperCase();
-  if (p.includes('BRASIL')) return 0;
-  if (PAISES_EUROPA.some(k => p.includes(k))) return 1;
-  return 2;
+const COMPETICOES_CONMEBOL = ['LIBERTADORES','SUL-AMERICANA','SULAMERICANA','SUDAMERICANA','RECOPA','MUNDIAL DE CLUBES'];
+const CLUBES_BRASILEIROS = ['FLAMENGO','PALMEIRAS','SÃO PAULO','SAO PAULO','CORINTHIANS','SANTOS','GRÊMIO','GREMIO','INTERNACIONAL','ATLÉTICO-MG','ATLETICO-MG','ATLÉTICO MINEIRO','ATLETICO MINEIRO','CRUZEIRO','FLUMINENSE','BOTAFOGO','VASCO','BAHIA','FORTALEZA','ATHLETICO','BRAGANTINO','CUIABÁ','CUIABA','GOIÁS','GOIAS','JUVENTUDE','CRICIÚMA','CRICIUMA','VITÓRIA','VITORIA','SPORT','CEARÁ','CEARA','CHAPECOENSE','AVAÍ','AVAI','CORITIBA','PONTE PRETA','GUARANI','NÁUTICO','NAUTICO','MIRASSOL','AMÉRICA-MG','AMERICA-MG'];
+
+function normalizarJogoDoItem(item) { return item && item.j ? item.j : item; }
+
+// Libertadores/Sul-Americana/etc só furam a fila quando um clube brasileiro está no jogo
+function grupoTemCompeticaoInternacionalComBrasil(grupo) {
+  const c = (grupo.competicao || '').toUpperCase();
+  if (!COMPETICOES_CONMEBOL.some(k => c.includes(k))) return false;
+  return grupo.list.some(item => {
+    const j = normalizarJogoDoItem(item);
+    const nomes = ((j.mandante || '') + ' ' + (j.visitante || '')).toUpperCase();
+    return CLUBES_BRASILEIROS.some(k => nomes.includes(k));
+  });
 }
-// Brasil primeiro, depois Europa, depois o resto - alfabético dentro de cada grupo
+
+function getPrioridadeRegiao(grupo) {
+  if (grupoTemCompeticaoInternacionalComBrasil(grupo)) return 0;
+  const p = (grupo.pais || '').toUpperCase();
+  if (p.includes('BRASIL')) return 1;
+  if (PAISES_TOP5_EUROPA.some(k => p.includes(k))) return 2;
+  if (PAISES_EUROPA.some(k => p.includes(k))) return 3;
+  return 4;
+}
+// Libertadores/Sul-Americana c/ time brasileiro > Brasil > Top 5 Europa > resto da Europa > resto do mundo
+// alfabético (por país) dentro de cada grupo
 function ordenarLigasPorPrioridade(chaves, mapa) {
   return chaves.sort((a, b) => {
-    const pa = getPrioridadeRegiao(mapa[a].pais), pb = getPrioridadeRegiao(mapa[b].pais);
+    const pa = getPrioridadeRegiao(mapa[a]), pb = getPrioridadeRegiao(mapa[b]);
     if (pa !== pb) return pa - pb;
     return a.localeCompare(b);
   });
