@@ -1164,6 +1164,14 @@ function hasM(metrica, keys) {
     return keys.some(k => m.includes(k.toLowerCase()));
 }
 
+// O motor agora grava "secao" (o título do card de origem no site) em cada linha,
+// o que elimina a ambiguidade de rótulos repetidos entre cards ("Over 0.5 Gols"
+// aparece em 3 cards diferentes). Enquanto o Firestore ainda tiver documentos
+// raspados antes dessa mudança, as abas caem no classificador por nome de métrica.
+function temSecoes(linhas) {
+    return (linhas || []).some(l => l && l.secao);
+}
+
 // Card com comutador de 2 visões (ex.: Primeiro/Segundo tempo, Marcados/Sofridos).
 // viewGroupId precisa ser único por card pra não embaralhar o toggle de outro card na mesma tela.
 function renderCardToggle(titulo, icon, lc, lf, viewGroupId, labelA, itemsA, labelB, itemsB) {
@@ -1722,7 +1730,25 @@ function renderizarConteudoModal() {
     const METRICAS_DEDUP_SIMPLES = ['marcou gol', 'sofreu gol', 'gols marcados', 'gols sofridos', 'média gols marcados', 'media gols marcados', 'média gols sofridos', 'media gols sofridos', 'ambas marcam'];
     const contagemVista = {};
 
-    rDesempenho.forEach(x => {
+    if (temSecoes(rDesempenho)) {
+      // Caminho preciso: o site diz de qual card cada linha veio.
+      // "Resultado aos 90 minutos" existe DUAS vezes (dentro de Quando Marcou e de
+      // Quando Sofreu) - a ordem do documento diz a qual dos dois pertence.
+      let cardAtual = '';
+      rDesempenho.forEach(x => {
+        const s = (x.secao || '').toLowerCase();
+        if (s.includes('quando marcou')) cardAtual = 'marcou';
+        else if (s.includes('quando sofreu')) cardAtual = 'sofreu';
+
+        if (s.includes('aproveitamento')) pAproveitamento.push(x);
+        else if (s.includes('por tempo')) (x.periodo === '2T' ? pTempoSegundo : pTempoPrimeiro).push(x);
+        else if (s.includes('quando marcou')) pMarcouAcoes.push(x);
+        else if (s.includes('quando sofreu')) pSofreuAcoes.push(x);
+        else if (s.includes('resultado aos 90')) (cardAtual === 'sofreu' ? pSofreuResult : pMarcouResult).push(x);
+        else if (s.includes('primeiro gol')) pPrimeiroGol.push(x);
+      });
+    }
+    else rDesempenho.forEach(x => {
         const m = (x.metrica || "").toLowerCase().trim();
         if (m.includes('total de jogos') || m.includes('pontos por jogo') || m.includes('posse de bola') || m.includes('posição') || m.includes('posicao')) sessaoAtual = 'aproveitamento';
         else if (m.includes('marcou primeiro') || m.includes('sofreu primeiro') || m.includes('sem gols')) sessaoAtual = 'primeiroGol';
@@ -1774,26 +1800,40 @@ function renderizarConteudoModal() {
     // Segundo tempo. 1ª ocorrência = geral, 2ª = Primeiro, 3ª = Segundo.
     const METRICAS_GOLS_REPETIDAS = ['gols marcados', 'gols sofridos', 'média gols marcados', 'media gols marcados', 'média gols sofridos', 'media gols sofridos'];
     const contagemGols = {};
-    const itemsGolsBase = [], itemsTempoPrimeiro = [], itemsTempoSegundo = [];
+    let itemsGolsBase = [], itemsTempoPrimeiro = [], itemsTempoSegundo = [];
+    let itemsOvers = [], itemsUnders = [], itemsMarcados = [], itemsSofridos = [], itemsFinalizacoes = [];
 
-    dNormal.forEach(x => {
-      const m = (x.metrica || '').toLowerCase().trim();
-      if (hasM(m, METRICAS_GOLS_REPETIDAS)) {
-        contagemGols[m] = (contagemGols[m] || 0) + 1;
-        if (contagemGols[m] === 1) itemsGolsBase.push(x);
-        else if (contagemGols[m] === 2) itemsTempoPrimeiro.push(x);
-        else if (contagemGols[m] === 3) itemsTempoSegundo.push(x);
-      } else if (m === 'média total de gols' || m === 'media total de gols') {
-        itemsGolsBase.push(x);
-      }
-    });
+    if (temSecoes(dNormal)) {
+      // Caminho preciso: cada linha sabe de qual card do site veio, então
+      // "Over 0.5 Gols" de Total de Gols, de Por Tempo e de Marcados e Sofridos
+      // param de se misturar num card só.
+      dNormal.forEach(x => {
+        const s = (x.secao || '').toLowerCase();
+        if (s.includes('total de gols')) (x.variante === 'UNDER' ? itemsUnders : itemsOvers).push(x);
+        else if (s.includes('por tempo')) (x.periodo === '2T' ? itemsTempoSegundo : itemsTempoPrimeiro).push(x);
+        else if (s.includes('marcados e sofridos')) (x.variante === 'SOFRIDOS' ? itemsSofridos : itemsMarcados).push(x);
+        else if (s.includes('finaliza')) itemsFinalizacoes.push(x);
+        else if (s.includes('gols')) itemsGolsBase.push(x);
+      });
+    } else {
+      dNormal.forEach(x => {
+        const m = (x.metrica || '').toLowerCase().trim();
+        if (hasM(m, METRICAS_GOLS_REPETIDAS)) {
+          contagemGols[m] = (contagemGols[m] || 0) + 1;
+          if (contagemGols[m] === 1) itemsGolsBase.push(x);
+          else if (contagemGols[m] === 2) itemsTempoPrimeiro.push(x);
+          else if (contagemGols[m] === 3) itemsTempoSegundo.push(x);
+        } else if (m === 'média total de gols' || m === 'media total de gols') {
+          itemsGolsBase.push(x);
+        }
+      });
 
-    const itemsOvers = dNormal.filter(x => x.metrica && x.metrica.includes('Over') && x.media);
-    const itemsUnders = dNormal.filter(x => x.metrica && x.metrica.includes('Under') && x.media);
-    const itemsFinalizacoes = dNormal.filter(x => ['Chutes por Jogo', 'Chutes no Alvo', 'Chutes para Marcar', 'Chutes no Alvo para Marcar', 'xG - A Favor', 'xG - Contra'].includes(x.metrica));
-    // Card 4 - reaproveita a mesma base já deduplicada (1ª ocorrência), só separa por rótulo
-    const itemsMarcados = itemsGolsBase.filter(x => hasM(x.metrica, ['marcados']));
-    const itemsSofridos = itemsGolsBase.filter(x => hasM(x.metrica, ['sofridos']));
+      itemsOvers = dNormal.filter(x => x.metrica && x.metrica.includes('Over') && x.media);
+      itemsUnders = dNormal.filter(x => x.metrica && x.metrica.includes('Under') && x.media);
+      itemsFinalizacoes = dNormal.filter(x => ['Chutes por Jogo', 'Chutes no Alvo', 'Chutes para Marcar', 'Chutes no Alvo para Marcar', 'xG - A Favor', 'xG - Contra'].includes(x.metrica));
+      itemsMarcados = itemsGolsBase.filter(x => hasM(x.metrica, ['marcados']));
+      itemsSofridos = itemsGolsBase.filter(x => hasM(x.metrica, ['sofridos']));
+    }
 
     corpo = `
     ${renderCardGrid('⚽ Gols Gerais', data.lc, data.lf, itemsGolsBase)}

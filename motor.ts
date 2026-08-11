@@ -630,28 +630,51 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
             // como 'periodo: 2T' SÓ as linhas cujo valor realmente mudou em relação ao
             // "Primeiro" - evita duplicar estatísticas globais (ex.: Aproveitamento da
             // temporada) que usam a mesma classe CSS mas não são por tempo de jogo.
-            const extrairLinhasDaTela = async (periodoTag?: string) => {
-              return await page.evaluate((periodo) => {
+            const extrairLinhasDaTela = async (periodoTag?: string, varianteTag?: string) => {
+              return await page.evaluate(({ periodo, variante }) => {
                   const resultados = [];
                   const seen = new Set();
 
-                  document.querySelectorAll('.pg-tstable-row').forEach(row => {
+                  // O site repete os MESMOS rótulos em cards diferentes ("Over 0.5 Gols"
+                  // aparece em Total de Gols, Por Tempo e Marcados e Sofridos; Venceu/
+                  // Perdeu/Empatou aparecem em Aproveitamento e Desempenho por Tempo).
+                  // Sem saber de qual card a linha veio é impossível montar as abas
+                  // corretamente, então percorremos o DOM em ordem de documento guardando
+                  // o último título de card visto antes de cada linha.
+                  const SELETOR_TITULO = '.pg-card-title, .pg-tstable-title, .pg-card-header, .pg-section-title, h1, h2, h3, h4, h5, h6';
+                  const ehTituloPlausivel = (txt) => txt && txt.length > 2 && txt.length < 60;
+
+                  const nodes = Array.from(document.querySelectorAll('.pg-tstable-row, ' + SELETOR_TITULO));
+                  let secaoAtual = '';
+
+                  nodes.forEach(node => {
+                      if (!node.classList || !node.classList.contains('pg-tstable-row')) {
+                          const t = (node.textContent || '').trim().replace(/\s+/g, ' ');
+                          if (ehTituloPlausivel(t)) secaoAtual = t;
+                          return;
+                      }
+
+                      const row = node;
                       const label = (row.querySelector('.pg-tstable-label')?.textContent || '').trim();
                       if (!label) return;
 
                       const vals = Array.from(row.querySelectorAll('.pgcv')).map(el => (el.textContent || '').trim().replace(/\s+/g, ' '));
 
                       if (vals.length >= 2) {
-                          const key = label + vals[0] + vals[1];
+                          // A chave inclui a seção: linhas iguais em cards diferentes são
+                          // dados distintos e não podem ser descartadas como duplicata.
+                          const key = secaoAtual + '|' + label + '|' + vals[0] + '|' + vals[1];
                           if (!seen.has(key)) {
                               seen.add(key);
                               const linha: any = {
                                   metrica: label,
+                                  secao: secaoAtual,
                                   casa: vals[0],
                                   fora: vals[1],
                                   media: vals[2] || ""
                               };
                               if (periodo) linha.periodo = periodo;
+                              if (variante) linha.variante = variante;
                               resultados.push(linha);
                           }
                       }
@@ -681,14 +704,17 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                   });
 
                   return resultados;
-              }, periodoTag || null);
+              }, { periodo: periodoTag || null, variante: varianteTag || null });
             };
 
-            const clicarToggleTempo = async (rotulo: 'PRIMEIRO' | 'SEGUNDO') => {
+            // Clica um botão de comutador pelo texto exato (ex.: "Segundo", "Under Gols",
+            // "Sofridos"). Os cards Total de Gols / Por Tempo / Marcados e Sofridos só
+            // renderizam um lado por vez, então sem clicar o outro lado ele nunca é raspado.
+            const clicarToggle = async (rotulo: string) => {
               return await page.evaluate((rot) => {
                   const alvo = Array.from(document.querySelectorAll('button, [role="tab"], span, div')).find(el => {
                       const txt = (el.textContent || '').trim().toUpperCase();
-                      return txt === rot && el.closest('button, [role="tab"]');
+                      return txt === rot.toUpperCase() && el.closest('button, [role="tab"]');
                   });
                   const clicavel: any = alvo ? (alvo.closest('button, [role="tab"]') || alvo) : null;
                   if (clicavel) { clicavel.click(); return true; }
@@ -696,29 +722,47 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
               }, rotulo);
             };
 
+            // Comutadores que escondem metade dos dados até serem clicados.
+            // [rótulo a clicar, rótulo pra voltar, tag gravada na linha]
+            const COMUTADORES: Array<[string, string, string]> = [
+              ['Segundo', 'Primeiro', '2T'],
+              ['Under Gols', 'Over Gols', 'UNDER'],
+              ['Sofridos', 'Marcados', 'SOFRIDOS'],
+            ];
+
             const extrairTabelaGenerica = async (nomeAba: string) => {
               await clicarAba(nomeAba);
-              const linhas1T = await extrairLinhasDaTela();
+              const linhasPadrao = await extrairLinhasDaTela();
 
-              let linhas2T = [];
-              try {
-                const achouSegundo = await clicarToggleTempo('SEGUNDO');
-                if (achouSegundo) {
+              // Índice do estado padrão por (seção|métrica) pra saber o que cada
+              // comutador realmente mudou - só o que mudou é dado novo.
+              const chaveDe = (l: any) => `${l.secao || ''}|${l.metrica}`;
+              const padraoPorChave = new Map(
+                linhasPadrao.filter((l: any) => l.tipo !== 'relogio').map((l: any) => [chaveDe(l), l])
+              );
+
+              const extras: any[] = [];
+              for (const [rotuloAbrir, rotuloVoltar, tag] of COMUTADORES) {
+                try {
+                  const achou = await clicarToggle(rotuloAbrir);
+                  if (!achou) continue;
                   await page.waitForTimeout(1200);
-                  const brutas2T = await extrairLinhasDaTela('2T');
-                  const mapa1T = new Map(linhas1T.filter((l: any) => l.tipo !== 'relogio').map((l: any) => [l.metrica, l]));
-                  linhas2T = brutas2T.filter((l: any) => {
-                    if (l.tipo === 'relogio') return false; // relógio de gols já cobre o jogo inteiro
-                    const par: any = mapa1T.get(l.metrica);
-                    return !par || par.casa !== l.casa || par.fora !== l.fora;
+
+                  const brutas = await extrairLinhasDaTela(tag === '2T' ? '2T' : undefined, tag);
+                  brutas.forEach((l: any) => {
+                    if (l.tipo === 'relogio') return; // o relógio já cobre o jogo inteiro
+                    const par: any = padraoPorChave.get(chaveDe(l));
+                    // Só guarda se o comutador de fato trocou o valor desta linha;
+                    // cards não afetados pelo clique repetem o mesmo conteúdo.
+                    if (!par || par.casa !== l.casa || par.fora !== l.fora) extras.push(l);
                   });
 
-                  await clicarToggleTempo('PRIMEIRO'); // deixa o toggle limpo pra próxima leitura
+                  await clicarToggle(rotuloVoltar); // devolve o card ao estado inicial
                   await page.waitForTimeout(500);
-                }
-              } catch (e) {}
+                } catch (e) {}
+              }
 
-              return [...linhas1T, ...linhas2T];
+              return [...linhasPadrao, ...extras];
             };
 
             let jsonH2H_casa = [];
