@@ -11,7 +11,7 @@ import * as fs from "fs";
 // da área de dados em debug_raiox.txt e PARA (não sincroniza nada no Firestore).
 // Serve pra descobrir as classes reais dos títulos de seção do site.
 // >>> Volte para false depois de gerar o arquivo. <<<
-const DEBUG_RAIOX = true;
+const DEBUG_RAIOX = false;
 
 // =========================================================================
 // SERVIDOR WEB
@@ -24,7 +24,7 @@ http
   .listen(8080, () => {
     console.log("=========================================================");
     console.log("🌐 SERVIDOR WEB ATIVO NA PORTA 8080");
-    console.log("⚙️ O Motor está ligado (TRAVADO APENAS EM 'HOJE' PARA TESTES)");
+    console.log("⚙️ O Motor está ligado (varre HOJE, ONTEM e AMANHÃ)");
     console.log("=========================================================\n");
   });
 
@@ -82,10 +82,18 @@ async function sincronizarAoVivoBackend() {
           if (jsonSM.data && Array.isArray(jsonSM.data)) {
             sucessoSM = true;
             for (const item of jsonSM.data) {
-              const homeName = normalizarNome(item.participants?.find(p => p.meta?.location === 'home')?.name);
-              const awayName = normalizarNome(item.participants?.find(p => p.meta?.location === 'away')?.name);
-              const hScore = item.scores?.find(s => s.description === 'CURRENT')?.score?.goals || 0;
-              const aScore = item.scores?.find(s => s.description === 'CURRENT')?.score?.goals || 0;
+              const homeParticipant = item.participants?.find((p: any) => p.meta?.location === 'home');
+              const awayParticipant = item.participants?.find((p: any) => p.meta?.location === 'away');
+              const homeName = normalizarNome(homeParticipant?.name);
+              const awayName = normalizarNome(awayParticipant?.name);
+
+              // BUG CORRIGIDO: os dois placares liam o MESMO .find() sem filtrar por
+              // time - golsFora sempre saía igual a golsCasa. Junta pelo participant_id
+              // (o mesmo id usado nos eventos abaixo) em vez de confiar num campo de
+              // texto solto que pode não existir na resposta.
+              const scoresAtuais = (item.scores || []).filter((s: any) => s.description === 'CURRENT');
+              const hScore = scoresAtuais.find((s: any) => s.participant_id === homeParticipant?.id)?.score?.goals ?? 0;
+              const aScore = scoresAtuais.find((s: any) => s.participant_id === awayParticipant?.id)?.score?.goals ?? 0;
               const min = item.state?.minute || "LIVE";
 
               // Um único fetch já trouxe os eventos (include=events) - aproveita tudo
@@ -95,8 +103,18 @@ async function sincronizarAoVivoBackend() {
               const vermelhosEvt = eventos.filter((e: any) => [20, 21].includes(e.type_id));
               const subsEvt = eventos.filter((e: any) => e.type_id === 18);
 
+              // Lista completa de quem marcou (não só o último) - com time, minuto e
+              // tempo (1T/2T, derivado do minuto) pra alimentar a aba "Quem Fez o Gol"
+              // E pra validar green/red dos métodos HT/2T mesmo quando o placar de
+              // intervalo raspado do site (golsHTCasa/Fora) não estiver disponível.
+              const golsDetalhados = golsEvt.map((e: any) => ({
+                jogador: e.player_name || "Desconhecido",
+                time: e.participant_id === homeParticipant?.id ? 'casa' : 'fora',
+                minuto: e.minute ?? null,
+                tempo: (e.minute !== null && e.minute !== undefined && e.minute <= 45) ? '1T' : '2T'
+              }));
               const lastGoalScorer = golsEvt.length ? (golsEvt[golsEvt.length - 1].player_name || "") : "";
-              const vermelhoCasa = vermelhosEvt.filter((e: any) => e.participant_id === item.participants?.find((p: any) => p.meta?.location === 'home')?.id).length;
+              const vermelhoCasa = vermelhosEvt.filter((e: any) => e.participant_id === homeParticipant?.id).length;
               const vermelhoFora = vermelhosEvt.length - vermelhoCasa;
               const ultimoVermelho = vermelhosEvt.length ? (vermelhosEvt[vermelhosEvt.length - 1].player_name || "") : "";
               const ultimaSubstituicao = subsEvt.length ? (subsEvt[subsEvt.length - 1].player_name || "") : "";
@@ -110,7 +128,7 @@ async function sincronizarAoVivoBackend() {
               if (match) {
                 await db.collection('jogos_ao_vivo').doc(String(match.id)).set({
                   golsCasa: hScore, golsFora: aScore, status: 'LIVE', minutoAoVivo: `${min}'`,
-                  ultimoGol: lastGoalScorer,
+                  ultimoGol: lastGoalScorer, golsDetalhados: golsDetalhados,
                   cartaoVermelhoCasa: vermelhoCasa, cartaoVermelhoFora: vermelhoFora, ultimoCartaoVermelho: ultimoVermelho,
                   totalSubstituicoes: subsEvt.length, ultimaSubstituicao: ultimaSubstituicao,
                   eventosAoVivoAtualizadoEm: new Date().toISOString()
@@ -151,6 +169,19 @@ async function sincronizarAoVivoBackend() {
               const vermelhosEvt = eventos.filter((e: any) => e.type === 'Card' && (e.detail || '').toUpperCase().includes('RED'));
               const subsEvt = eventos.filter((e: any) => e.type === 'subst' || e.type === 'Subst');
 
+              // Lista completa de quem marcou (não só o último) - com time, minuto e
+              // tempo (1T/2T, derivado do minuto) pra alimentar a aba "Quem Fez o Gol"
+              // E pra validar green/red dos métodos HT/2T mesmo quando o placar de
+              // intervalo raspado do site (golsHTCasa/Fora) não estiver disponível.
+              const golsDetalhados = golsEvt.map((e: any) => {
+                const minuto = e.time?.elapsed ?? null;
+                return {
+                  jogador: e.player?.name || "Desconhecido",
+                  time: e.team?.id === item.teams?.home?.id ? 'casa' : 'fora',
+                  minuto,
+                  tempo: (minuto !== null && minuto <= 45) ? '1T' : '2T'
+                };
+              });
               const lastGoalScorer = golsEvt.length ? (golsEvt[golsEvt.length - 1].player?.name || "") : "";
               const vermelhoCasa = vermelhosEvt.filter((e: any) => e.team?.id === item.teams?.home?.id).length;
               const vermelhoFora = vermelhosEvt.length - vermelhoCasa;
@@ -166,7 +197,7 @@ async function sincronizarAoVivoBackend() {
               if (match) {
                 await db.collection('jogos_ao_vivo').doc(String(match.id)).set({
                   golsCasa: hScore, golsFora: aScore, status: 'LIVE', minutoAoVivo: `${min}'`,
-                  ultimoGol: lastGoalScorer,
+                  ultimoGol: lastGoalScorer, golsDetalhados: golsDetalhados,
                   cartaoVermelhoCasa: vermelhoCasa, cartaoVermelhoFora: vermelhoFora, ultimoCartaoVermelho: ultimoVermelho,
                   totalSubstituicoes: subsEvt.length, ultimaSubstituicao: ultimaSubstituicao,
                   eventosAoVivoAtualizadoEm: new Date().toISOString()
@@ -206,7 +237,7 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
   }
 
   console.log("\n==================================================");
-  console.log(`🚀 [CR7 MOTOR] INICIANDO VARREDURA (MODO TESTE RÁPIDO)...`);
+  console.log(`🚀 [CR7 MOTOR] INICIANDO VARREDURA (HOJE, ONTEM, AMANHÃ)...`);
   console.log("==================================================");
 
   await atualizarStatusMotor({
@@ -249,6 +280,7 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
 
     const diasParaRaspar = ['hoje', 'ontem', 'amanha'];
     let totalJogosNaRodada = 0;
+    let jaCapturouDebugH2HAmbos = false; // só grava 1x por execução, não a cada jogo
 
     for (const diaAlvo of diasParaRaspar) {
         console.log(`\n==================================================`);
@@ -315,6 +347,7 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
 
         const resultadoGrade = await page.evaluate((dbDate) => {
           const jogosExtraidos = [];
+          const descartados = []; // linkEl.outerHTML de partidas sem mandante/visitante - pra diagnosticar sem chute
           const matchMap = new Set();
           
           const destaquesSet = new Set();
@@ -363,9 +396,11 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
 
             const paisStrSegura = String(pais || "").toUpperCase();
             if (compStrSegura.includes("SEGUNDA DIVIS") || compStrSegura.includes("SÉRIE B") || compStrSegura.includes("SERIE B")) {
-              // Só passa Série B/Segunda Divisão quando for Brasileirão Série B ou Bundesliga 2
-              const ehBrasileiraoB = paisStrSegura.includes("BRASIL") && compStrSegura.includes("BRASILEIR");
-              const ehBundesliga2 = compStrSegura.includes("BUNDESLIGA") && compStrSegura.includes("2");
+              // Só passa Série B/Segunda Divisão quando for Brasileirão Série B ou Bundesliga 2 -
+              // o nome da competição vem genérico ("Segunda Divisão"/"Série B"), então quem
+              // distingue a liga é o país, não a palavra "Brasileirão"/"Bundesliga" no texto
+              const ehBrasileiraoB = paisStrSegura.includes("BRASIL");
+              const ehBundesliga2 = paisStrSegura.includes("ALEMANHA");
               if (!ehBrasileiraoB && !ehBundesliga2) return;
             }
 
@@ -377,12 +412,30 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
             }
 
             // Descarta nome de time que na verdade veio como o nome da liga (ex.: "(Premier Soccer League)")
-            const pareceNomeDeLiga = (t: string) => !t || /^\(.*\)$/.test(t) || t.toUpperCase() === compStrSegura;
-            if (pareceNomeDeLiga(mandante)) mandante = "";
-            if (pareceNomeDeLiga(visitante)) visitante = "";
+            // ou como ruído de data/hora do card ("14:30", "11/08", "11 Aug", "Terça-feira") -
+            // cada formato novo que aparecia furava o filtro anterior (que só pegava um
+            // formato por vez), então agora é uma checagem única e mais ampla, reaproveitada
+            // tanto pro seletor principal quanto pro fallback de texto solto.
+            const MESES_ABREV = /^(jan|fev|feb|mar|abr|apr|mai|may|jun|jul|ago|aug|set|sep|out|oct|nov|dez|dec)\.?$/i;
+            const DIAS_SEMANA = /^(seg|ter|qua|qui|sex|s[aá]b|dom|mon|tue|wed|thu|fri|sat|sun)(-feira)?$/i;
+            const pareceRuido = (t: string) => {
+              if (!t) return true;
+              const s = t.trim();
+              if (/^\(.*\)$/.test(s) || s.toUpperCase() === compStrSegura) return true; // nome da liga
+              if (/^[\d.,]+$/.test(s)) return true; // odd solta ("2.50")
+              if (/^\d{1,2}:\d{2}$/.test(s)) return true; // hora ("14:30")
+              if (/^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(s)) return true; // data numérica ("11/08")
+              const partesData = s.split(/\s+/);
+              if (partesData.length === 2 && /^\d{1,2}$/.test(partesData[0]) && MESES_ABREV.test(partesData[1])) return true; // "11 Aug" / "11 Ago"
+              if (DIAS_SEMANA.test(s)) return true; // "Terça-feira", "Seg"
+              return false;
+            };
+
+            if (pareceRuido(mandante)) mandante = "";
+            if (pareceRuido(visitante)) visitante = "";
 
             if (!mandante || !visitante) {
-              const txts = (linkEl.innerText || "").split("\n").map((s) => s.trim()).filter((t) => t.length > 2 && !/^[\d.,]+$/.test(t));
+              const txts = (linkEl.innerText || "").split("\n").map((s) => s.trim()).filter((t) => t.length > 2 && !pareceRuido(t));
               if (txts.length >= 2) {
                 mandante = txts[0];
                 visitante = txts[txts.length - 1];
@@ -435,15 +488,27 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
             if (mandante && visitante) {
               matchMap.add(matchId);
               jogosExtraidos.push({ id: matchId, pais, competicao, mandante, visitante, logoCasa, logoFora, oddCasa, oddEmpate, oddFora, status, hora, golsCasa, golsFora, dataJogo: dbDate, link: href, isDestaque });
-            } 
+            } else if (descartados.length < 15) {
+              // Guarda só os primeiros 15 pra não inchar o arquivo - o bug se repete
+              // com o mesmo padrão de markup, não precisa de todos os casos.
+              descartados.push({ matchId, mandanteAchado: mandante, visitanteAchado: visitante, html: linkEl.outerHTML });
+            }
           });
 
-          return { jogos: jogosExtraidos };
+          return { jogos: jogosExtraidos, descartados };
         }, dataSalvarDB);
 
         const listaEstruturada = resultadoGrade.jogos;
         totalJogosNaRodada += listaEstruturada.length;
         console.log(`📌 [MAPA DO DIA ${diaAlvo.toUpperCase()}]: Encontradas ${listaEstruturada.length} partidas`);
+
+        if (resultadoGrade.descartados.length > 0) {
+          const corpoDebug = resultadoGrade.descartados.map((d, i) =>
+            `\n${"=".repeat(80)}\n#${i + 1} matchId=${d.matchId} mandanteAchado="${d.mandanteAchado}" visitanteAchado="${d.visitanteAchado}"\n${"=".repeat(80)}\n${d.html}`
+          ).join("\n");
+          fs.writeFileSync(`debug_jogos_sem_nome_${diaAlvo}.txt`, corpoDebug, "utf8");
+          console.log(`⚠️ [DEBUG] ${resultadoGrade.descartados.length} partida(s) sem nome de time - HTML salvo em debug_jogos_sem_nome_${diaAlvo}.txt`);
+        }
 
         let count = 0;
         for (const item of listaEstruturada) {
@@ -516,39 +581,55 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                   return ["canto", "cantos", "escanteio", "escanteios", "cartao", "cartão", "cartoes", "cartões"].some(k => lower.includes(k));
                 };
 
-                document.querySelectorAll('.card-match-content, [class*="card"], .bg-white').forEach((card) => {
-                  const cardText = card.innerText || "";
-                  const rows = cardText.split("\n").map((r) => r.trim()).filter(Boolean);
+                // Confronto Direto: cada linha só identifica o time via <img alt="Nome">
+                // dentro de .match-insights-icons - alt de img não aparece em innerText,
+                // então ler o time daqui (em vez de tentar casar texto solto) é o que
+                // realmente evita misturar os dois times num stat só.
+                const seenConfronto = new Set();
+                document.querySelectorAll('.match-insights-card--h2h .match-insights-row').forEach((row) => {
+                  const label = (row.querySelector('.match-insights-label')?.textContent || '').trim();
+                  const valor = (row.querySelector('.match-insights-value')?.textContent || '').trim();
+                  if (!label || !valor || ehCantoOuCartao(label)) return;
 
-                  if (cardText.includes("Confronto Direto")) {
-                    let ctx = "Ambos";
-                    for (let i = 0; i < rows.length; i++) {
-                      const nr = n(rows[i]);
-                      if (nr === nm || nr.includes(nm) || nm.includes(nr)) ctx = teams.mandante;
-                      else if (nr === nv || nr.includes(nv) || nv.includes(nr)) ctx = teams.visitante;
-                      else if (["Vitórias", "Sem derrota", "Ambas Marcam", "Menos de", "Mais de", "Sem vitória"].some(k => rows[i].includes(k))) {
-                        if (!ehCantoOuCartao(rows[i]) && rows[i + 1] && /^[0-9\/]+$/.test(rows[i + 1])) {
-                          dados.confronto.push({ metrica: ctx !== "Ambos" ? `${ctx} - ${rows[i]}` : rows[i], valor: rows[i + 1] });
-                        }
-                      }
-                    }
+                  let ctx = "Ambos";
+                  const alt = (row.querySelector('.match-insights-icons img[alt]')?.getAttribute('alt') || '').trim();
+                  if (alt) {
+                    const nAlt = n(alt);
+                    if (nAlt === nm || nAlt.includes(nm) || nm.includes(nAlt)) ctx = teams.mandante;
+                    else if (nAlt === nv || nAlt.includes(nv) || nv.includes(nAlt)) ctx = teams.visitante;
                   }
 
-                  if (cardText.includes("Tendências") || cardText.includes("RECORTE RECENTE") || cardText.includes("Recorte Recente")) {
-                    let ctx = "Ambos";
-                    for (let i = 0; i < rows.length; i++) {
-                      const nr = n(rows[i]);
-                      if (nr === nm || nr.includes(nm) || nm.includes(nr)) ctx = teams.mandante;
-                      else if (nr === nv || nr.includes(nv) || nv.includes(nr)) ctx = teams.visitante;
-                      else if (["Vitórias", "Sem derrota", "Ambas marcam", "Menos", "Mais", "Sem vitória"].some(k => rows[i].includes(k))) {
-                        if (!ehCantoOuCartao(rows[i]) && rows[i + 1] && /^[0-9\/]+$/.test(rows[i + 1])) {
-                          dados.tendencias.push({ regra: ctx !== "Ambos" ? `${ctx} - ${rows[i]}` : rows[i], rate: rows[i + 1] });
-                        }
-                      }
-                    }
+                  const metrica = ctx !== "Ambos" ? `${ctx} - ${label}` : label;
+                  const key = metrica + '|' + valor;
+                  if (!seenConfronto.has(key)) {
+                    seenConfronto.add(key);
+                    dados.confronto.push({ metrica, valor });
                   }
                 });
-                
+
+                // Tendências: cada bloco de time (.match-insights-team-block) já vem com
+                // o nome do time em texto normal, sem precisar de heurística.
+                const seenTendencias = new Set();
+                document.querySelectorAll('.match-insights-card--trends .match-insights-team-block').forEach((bloco) => {
+                  const nomeTime = (bloco.querySelector('.match-insights-team-name')?.textContent || '').trim();
+                  bloco.querySelectorAll('.match-insights-team-row').forEach((row) => {
+                    const label = (row.querySelector('.match-insights-team-label')?.textContent || '').trim();
+                    const rate = (row.querySelector('.match-insights-team-value')?.textContent || '').trim();
+                    if (!label || !rate || ehCantoOuCartao(label)) return;
+
+                    const regra = nomeTime ? `${nomeTime} - ${label}` : label;
+                    const key = regra + '|' + rate;
+                    if (!seenTendencias.has(key)) {
+                      seenTendencias.add(key);
+                      dados.tendencias.push({ regra, rate });
+                    }
+                  });
+                });
+
+                // Principais Mercados: o site renderiza um bloco duplicado (desktop +
+                // mobile) na mesma página, então sem deduplicar por conteúdo cada
+                // mercado aparece 2x na lista.
+                const seenMercados = new Set();
                 document.querySelectorAll('.odds-market-row, [class*="odds-market-row"]').forEach((row) => {
                   const labelEl = row.querySelector('.odds-market-label, [class*="market-label"]');
                   const oddCells = Array.from(row.querySelectorAll('[class*="odds-market-cell"], [class*="cell"]'));
@@ -557,7 +638,12 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                     const oddsNumeric = oddCells.map((c) => (c.innerText || "").trim()).filter((t) => /^[0-9.]+$/.test(t));
                     if (oddsNumeric.length >= 2) {
                       if (nomeStr === 'Resultado' || nomeStr.includes('0.5 Gols HT') || nomeStr.includes('Over 2.5 Gols')) {
-                          dados.mercados.push({ nome: nomeStr, man: oddsNumeric[0], vis: oddsNumeric[oddsNumeric.length - 1] });
+                          const man = oddsNumeric[0], vis = oddsNumeric[oddsNumeric.length - 1];
+                          const key = nomeStr + '|' + man + '|' + vis;
+                          if (!seenMercados.has(key)) {
+                            seenMercados.add(key);
+                            dados.mercados.push({ nome: nomeStr, man, vis });
+                          }
                       }
                     }
                   }
@@ -648,27 +734,48 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
             // como 'periodo: 2T' SÓ as linhas cujo valor realmente mudou em relação ao
             // "Primeiro" - evita duplicar estatísticas globais (ex.: Aproveitamento da
             // temporada) que usam a mesma classe CSS mas não são por tempo de jogo.
-            const extrairLinhasDaTela = async (periodoTag?: string, varianteTag?: string) => {
-              return await page.evaluate(({ periodo, variante }) => {
+            // O site NÃO troca os dados de Primeiro/Segundo (ou Over/Under, Marcados/
+            // Sofridos) por clique - os DOIS blocos já vêm renderizados juntos no DOM
+            // (confirmado via debug_raiox.txt: ".pg-tstable-colheader-label" com texto
+            // "Primeiro" aparece uma vez, "Segundo" aparece de novo logo depois, cada um
+            // com seu próprio conjunto de .pg-tstable-row). O mecanismo antigo de clicar
+            // em "Segundo"/"Under Gols"/"Sofridos" e comparar o que mudou resolvia um
+            // problema que não existe desse jeito - causava linhas duplicadas (Primeiro
+            // ganhava as linhas de Segundo coladas junto) e às vezes clicava no toggle
+            // do card errado (Desempenho por Tempo x Gols por Tempo têm botões "Segundo"
+            // com o mesmo texto). Agora é uma única passagem pelo DOM que rastreia dois
+            // "títulos" em paralelo: o do card (secao) e o do sub-bloco Primeiro/Segundo/
+            // Over/Under/Marcados/Sofridos (subRotulo) - sem clicar em nada.
+            const extrairLinhasDaTela = async () => {
+              return await page.evaluate(() => {
                   const resultados = [];
                   const seen = new Set();
 
-                  // O site repete os MESMOS rótulos em cards diferentes ("Over 0.5 Gols"
-                  // aparece em Total de Gols, Por Tempo e Marcados e Sofridos; Venceu/
-                  // Perdeu/Empatou aparecem em Aproveitamento e Desempenho por Tempo).
-                  // Sem saber de qual card a linha veio é impossível montar as abas
-                  // corretamente, então percorremos o DOM em ordem de documento guardando
-                  // o último título de card visto antes de cada linha.
-                  const SELETOR_TITULO = '.pg-card-title, .pg-tstable-title, .pg-card-header, .pg-section-title, h1, h2, h3, h4, h5, h6';
+                  // Nenhuma das classes antigas (.pg-card-title etc.) existe de verdade no
+                  // site - por isso "secao" sempre saía vazio e as abas caíam no classificador
+                  // de fallback por texto, que é frágil e mistura rótulos ambíguos (ex.: "Não
+                  // houve mais gols" existe em Quando Marcou E em Quando Sofreu). Os títulos
+                  // reais usam .std-line-card-title-text (Aproveitamento, Primeiro Gol, Quando
+                  // Marcou/Sofreu Primeiro), .std-tabs-card-title(-desktop) (Desempenho por
+                  // Tempo, Total/Gols por Tempo, Gols Marcados e Sofridos) e
+                  // .first-goal-flow-section-text (o sub-título "Resultado aos 90 minutos").
+                  const SELETOR_TITULO = '.std-line-card-title-text, .std-tabs-card-title, .std-tabs-card-title-desktop, .first-goal-flow-section-text, .pg-card-title, .pg-tstable-title, .pg-card-header, .pg-section-title, h1, h2, h3, h4, h5, h6';
+                  const SELETOR_SUBROTULO = '.pg-tstable-colheader-label';
                   const ehTituloPlausivel = (txt) => txt && txt.length > 2 && txt.length < 60;
 
-                  const nodes = Array.from(document.querySelectorAll('.pg-tstable-row, ' + SELETOR_TITULO));
+                  const nodes = Array.from(document.querySelectorAll('.pg-tstable-row, ' + SELETOR_TITULO + ', ' + SELETOR_SUBROTULO));
                   let secaoAtual = '';
+                  let subRotuloAtual = '';
 
                   nodes.forEach(node => {
+                      if (node.matches(SELETOR_SUBROTULO)) {
+                          const t = (node.textContent || '').trim();
+                          if (t) subRotuloAtual = t; // rótulo vazio (colheader só com escudo) não conta
+                          return;
+                      }
                       if (!node.classList || !node.classList.contains('pg-tstable-row')) {
                           const t = (node.textContent || '').trim().replace(/\s+/g, ' ');
-                          if (ehTituloPlausivel(t)) secaoAtual = t;
+                          if (ehTituloPlausivel(t)) { secaoAtual = t; subRotuloAtual = ''; } // novo card reseta o sub-rótulo
                           return;
                       }
 
@@ -676,42 +783,62 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                       const label = (row.querySelector('.pg-tstable-label')?.textContent || '').trim();
                       if (!label) return;
 
-                      const vals = Array.from(row.querySelectorAll('.pgcv')).map(el => (el.textContent || '').trim().replace(/\s+/g, ' '));
+                      // O site já calcula se cada valor é bom/ruim/neutro e grava isso na
+                      // própria classe do elemento (color-green, color-dark-red, color-neutral
+                      // etc.) - lendo direto daqui o app reproduz a MESMA cor do site em vez
+                      // de tentar adivinhar se 20% de vitórias é "bom" ou "ruim".
+                      const pgcvEls = Array.from(row.querySelectorAll('.pgcv'));
+                      const vals = pgcvEls.map(el => (el.textContent || '').trim().replace(/\s+/g, ' '));
+                      const cores = pgcvEls.map(el => {
+                          const m = (el.className || '').match(/color-[\w-]+/);
+                          return m ? m[0] : '';
+                      });
 
                       if (vals.length >= 2) {
-                          // A chave inclui a seção: linhas iguais em cards diferentes são
-                          // dados distintos e não podem ser descartadas como duplicata.
-                          const key = secaoAtual + '|' + label + '|' + vals[0] + '|' + vals[1];
+                          // A chave inclui seção E sub-rótulo: linhas iguais em cards/sub-blocos
+                          // diferentes (Primeiro x Segundo, Over x Under) são dados distintos.
+                          const key = secaoAtual + '|' + subRotuloAtual + '|' + label + '|' + vals[0] + '|' + vals[1];
                           if (!seen.has(key)) {
                               seen.add(key);
-                              const linha: any = {
+                              resultados.push({
                                   metrica: label,
                                   secao: secaoAtual,
+                                  subRotulo: subRotuloAtual,
                                   casa: vals[0],
                                   fora: vals[1],
-                                  media: vals[2] || ""
-                              };
-                              if (periodo) linha.periodo = periodo;
-                              if (variante) linha.variante = variante;
-                              resultados.push(linha);
+                                  media: vals[2] || "",
+                                  corCasa: cores[0] || "",
+                                  corFora: cores[1] || "",
+                                  corMedia: cores[2] || ""
+                              });
                           }
                       }
                   });
 
+                  // O Relógio de Gols não é uma tabela só - é 2 ABAS por time
+                  // (pg-stat-tab-panel ...-home / ...-away), cada uma com suas 6 janelas
+                  // de tempo. Sem saber de qual painel a linha veio, as duas abas ficavam
+                  // juntas numa lista só (12 linhas em vez de 6, com valores diferentes -
+                  // parecia duplicata, mas eram os dois times misturados).
                   document.querySelectorAll('.pg-goalmomentum-row').forEach(row => {
                       const tempo = (row.querySelector('.pg-gm-time')?.textContent || '').trim();
                       if (!tempo) return;
+
+                      const painel = row.closest('[id*="-home"], [id*="-away"]');
+                      const painelId = painel ? painel.id : '';
+                      const lado = painelId.includes('-away') ? 'fora' : 'casa';
 
                       const marcado = (row.querySelector('.pg-gm-marcado')?.textContent || '').trim();
                       const sofrido = (row.querySelector('.pg-gm-sofrido')?.textContent || '').trim();
                       const percM = (row.querySelector('.pg-gm-perc-mercado, [class*="perc-mercado"]')?.textContent || '').trim();
                       const percS = (row.querySelector('.pg-gm-perc-sofrido, [class*="perc-sofrido"]')?.textContent || '').trim();
 
-                      const key = 'relogio' + tempo + marcado + sofrido;
+                      const key = 'relogio' + lado + tempo + marcado + sofrido;
                       if (!seen.has(key)) {
                           seen.add(key);
                           resultados.push({
                               tipo: 'relogio',
+                              lado: lado,
                               tempo: tempo,
                               m: percM,
                               s: percS,
@@ -722,65 +849,12 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
                   });
 
                   return resultados;
-              }, { periodo: periodoTag || null, variante: varianteTag || null });
+              });
             };
-
-            // Clica um botão de comutador pelo texto exato (ex.: "Segundo", "Under Gols",
-            // "Sofridos"). Os cards Total de Gols / Por Tempo / Marcados e Sofridos só
-            // renderizam um lado por vez, então sem clicar o outro lado ele nunca é raspado.
-            const clicarToggle = async (rotulo: string) => {
-              return await page.evaluate((rot) => {
-                  const alvo = Array.from(document.querySelectorAll('button, [role="tab"], span, div')).find(el => {
-                      const txt = (el.textContent || '').trim().toUpperCase();
-                      return txt === rot.toUpperCase() && el.closest('button, [role="tab"]');
-                  });
-                  const clicavel: any = alvo ? (alvo.closest('button, [role="tab"]') || alvo) : null;
-                  if (clicavel) { clicavel.click(); return true; }
-                  return false;
-              }, rotulo);
-            };
-
-            // Comutadores que escondem metade dos dados até serem clicados.
-            // [rótulo a clicar, rótulo pra voltar, tag gravada na linha]
-            const COMUTADORES: Array<[string, string, string]> = [
-              ['Segundo', 'Primeiro', '2T'],
-              ['Under Gols', 'Over Gols', 'UNDER'],
-              ['Sofridos', 'Marcados', 'SOFRIDOS'],
-            ];
 
             const extrairTabelaGenerica = async (nomeAba: string) => {
               await clicarAba(nomeAba);
-              const linhasPadrao = await extrairLinhasDaTela();
-
-              // Índice do estado padrão por (seção|métrica) pra saber o que cada
-              // comutador realmente mudou - só o que mudou é dado novo.
-              const chaveDe = (l: any) => `${l.secao || ''}|${l.metrica}`;
-              const padraoPorChave = new Map(
-                linhasPadrao.filter((l: any) => l.tipo !== 'relogio').map((l: any) => [chaveDe(l), l])
-              );
-
-              const extras: any[] = [];
-              for (const [rotuloAbrir, rotuloVoltar, tag] of COMUTADORES) {
-                try {
-                  const achou = await clicarToggle(rotuloAbrir);
-                  if (!achou) continue;
-                  await page.waitForTimeout(1200);
-
-                  const brutas = await extrairLinhasDaTela(tag === '2T' ? '2T' : undefined, tag);
-                  brutas.forEach((l: any) => {
-                    if (l.tipo === 'relogio') return; // o relógio já cobre o jogo inteiro
-                    const par: any = padraoPorChave.get(chaveDe(l));
-                    // Só guarda se o comutador de fato trocou o valor desta linha;
-                    // cards não afetados pelo clique repetem o mesmo conteúdo.
-                    if (!par || par.casa !== l.casa || par.fora !== l.fora) extras.push(l);
-                  });
-
-                  await clicarToggle(rotuloVoltar); // devolve o card ao estado inicial
-                  await page.waitForTimeout(500);
-                } catch (e) {}
-              }
-
-              return [...linhasPadrao, ...extras];
+              return await extrairLinhasDaTela();
             };
 
             let jsonH2H_casa = [];
@@ -792,6 +866,27 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
               jsonH2H_casa = await extrairH2H('home', item.mandante);
               jsonH2H_ambos = await extrairH2H('h2h', 'H2H');
               jsonH2H_fora = await extrairH2H('away', item.visitante);
+
+              // A view "H2H" (ambos) parece ter uma tabela bem diferente das views
+              // Casa/Fora (que usam .dsmp-row) - ainda não temos o HTML real dela pra
+              // confirmar o seletor certo. Em vez de chutar de novo, captura a área ao
+              // redor do toggle na primeira vez que vier vazia nesta execução.
+              if (jsonH2H_ambos.length === 0 && !jaCapturouDebugH2HAmbos) {
+                jaCapturouDebugH2HAmbos = true;
+                await page.evaluate(() => {
+                  const btns = Array.from(document.querySelectorAll('.pg-cardtab-3-nav .pg-cardtab, .pg-cardtab'));
+                  const target = btns.find((b) => (b.textContent || '').trim() === 'H2H') || btns[1];
+                  if (target) (target as HTMLElement).click();
+                });
+                await page.waitForTimeout(1500);
+                const htmlH2H = await page.evaluate(() => {
+                  const nav = document.querySelector('.pg-cardtab-3-nav');
+                  const container = nav ? (nav.closest('[class*="card"]') as HTMLElement || nav.parentElement?.parentElement || nav.parentElement) : document.querySelector('main');
+                  return container ? container.outerHTML : (document.body.innerHTML || '').slice(0, 20000);
+                });
+                fs.writeFileSync('debug_h2h_ambos_vazio.txt', `Jogo: ${item.mandante} x ${item.visitante}\n\n${htmlH2H}`, 'utf8');
+                console.log('⚠️ [DEBUG] H2H "ambos" veio vazio - HTML salvo em debug_h2h_ambos_vazio.txt');
+              }
             } catch (e) {}
 
             // ===================== DEBUG DO RAIO-X =====================
@@ -894,7 +989,7 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
     const fimMs = Date.now();
     await atualizarStatusMotor({
       status: "CONCLUÍDO",
-      ultimoLog: `Processados ${totalJogosNaRodada} jogos. (MODO TESTE HOJE)`,
+      ultimoLog: `Processados ${totalJogosNaRodada} jogos. (HOJE, ONTEM e AMANHÃ)`,
       mensagem: "Varredura concluída com sucesso.",
       duracaoMinutos: Math.floor((fimMs - inicioMs) / 60000),
     });

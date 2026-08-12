@@ -1,0 +1,146 @@
+
+================================================================================
+#1 matchId=8546597 mandanteAchado="Silkeborg" visitanteAchado=""
+================================================================================
+<a href="https://clube.theoborges.com/game/8546597?dia=ontem&amp;mode=ha&amp;t=272a956374" class="match-row  partida linha-impar" data-pais="Dinamarca" data-horario="tarde" data-home-id="denmark-silkeborg-if" data-away-id="denmark-odense-bk">
+
+
+      <!-- FAVORITO -->
+      <button class="favorite-btn" data-match-id="8546597">
+        <i class="ri-star-line" style="color: #9ca3af;">
+        </i>
+      </button>
+
+      
+      <!-- TIMES -->
+      <div class="match-teams">
+                  <div class="match-kickoff">
+            <span class="match-kickoff-time">14:00</span>
+            <span class="match-kickoff-date">10 Aug</span>
+          </div>
+
+          <div class="team-logos">
+            <div class="team-logo-wrap">
+                              <img src="https://clube.theoborges.com/team-image-proxy?url=https%3A%2F%2Fcdn.footystats.org%2Fimg%2Fteams%2Fdenmark-silkeborg-if.png" alt="Silkeborg" loading="lazy" decoding="async">
+                          </div>
+            <div class="team-logo-wrap">
+                              <img src="https://clube.theoborges.com/team-image-proxy?url=https%3A%2F%2Fcdn.footystats.org%2Fimg%2Fteams%2Fdenmark-odense-bk.png" alt="OB" loading="lazy" decoding="async">
+                          </div>
+          </div>
+
+          <div class="match-details">
+            <span class="match-team-name">Silkeborg</span>
+            <span class="match-team-name">OB</span>
+            <div class="match-info">
+              <span class="match-league">
+                Primeira Divisão
+                <span class="league-technical-name">(Superliga)</span>
+              </span>
+            </div>
+          </div>
+              </div>
+
+      
+              <!-- FORMS -->
+        <div class="match-forms">
+                      <!-- Mandante -->
+            <div class="team-form">
+                              <span class="form-dot loss"></span>
+                          </div>
+
+            <!-- Visitante -->
+            <div class="team-form">
+                              <span class="form-dot loss"></span>
+                          </div>
+                  </div>
+
+        <!-- PPJ -->
+        <div class="match-ppj">
+                  </div>
+      
+      <!-- ODDS -->
+      <div class="match-odds">
+                  <div class="odd">2.90</div>
+        
+                  <div class="odd">3.50</div>
+        
+                  <div class="odd">2.25</div>
+              </div>
+    </a>
+
+================================================================================
+#2 matchId=8447201 mandanteAchado="Fram" visitanteAchado=""
+================================================================================
+<a href="https://clube.theoborges.com/game/8447201?dia=ontem&amp;mode=ha&amp;t=272a956374" class="match-row  partida linha-impar" data-pais="Islândia" data-horario="tarde" data-home-id="iceland-fram-reykjavik" data-away-id="iceland-kr-reykjavik">
+
+
+      <!-- FAVORITO -->
+      <button class="favorite-btn" data-match-id="8447201">
+        <i class="ri-star-line" style="color: #9ca3af;">
+        </i>
+      </button>
+
+      
+      <!-- TIMES -->
+      <div class="match-teams">
+                  <div class="match-kickoff">
+            <span class="match-kickoff-time">16:15</span>
+            <span class="match-kickoff-date">10 Aug</span>
+          </div>
+
+          <div class="team-logos">
+            <div class="team-logo-wrap">
+                              <img src="https://clube.theoborges.com/team-image-proxy?url=https%3A%2F%2Fcdn.footystats.org%2Fimg%2Fteams%2Ficeland-fram-reykjavik.png" alt="Fram" loading="lazy" decoding="async">
+                          </div>
+            <div class="team-logo-wrap">
+                              <img src="https://clube.theoborges.com/team-image-proxy?url=https%3A%2F%2Fcdn.footystats.org%2Fimg%2Fteams%2Ficeland-kr-reykjavik.png" alt="KR" loading="lazy" decoding="async">
+                          </div>
+          </div>
+
+          <div class="match-details">
+            <span class="match-team-name">Fram</span>
+            <span class="match-team-name">KR</span>
+            <div class="match-info">
+              <span class="match-league">
+                Primeira Divisão
+                <span class="league-technical-name">(Úrvalsdeild)</span>
+              </span>
+            </div>
+          </div>
+              </div>
+
+      
+              <!-- FORMS -->
+        <div class="match-forms">
+                      <!-- Mandante -->
+            <div class="team-form">
+                              <span class="form-dot win"></span>
+                              <span class="form-dot win"></span>
+                              <span class="form-dot loss"></span>
+                              <span class="form-dot win"></span>
+                              <span class="form-dot draw"></span>
+                          </div>
+
+            <!-- Visitante -->
+            <div class="team-form">
+                              <span class="form-dot loss"></span>
+                              <span class="form-dot loss"></span>
+                              <span class="form-dot loss"></span>
+                              <span class="form-dot draw"></span>
+                              <span class="form-dot draw"></span>
+                          </div>
+                  </div>
+
+        <!-- PPJ -->
+        <div class="match-ppj">
+                  </div>
+      
+      <!-- ODDS -->
+      <div class="match-odds">
+                  <div class="odd">2.70</div>
+        
+                  <div class="odd">4.20</div>
+        
+                  <div class="odd">1.95</div>
+              </div>
+    </a>

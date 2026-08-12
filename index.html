@@ -178,6 +178,7 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
   <span class="text-red-400">🔴 Reds: <b id="cntRedsDay">0</b></span>
   <span class="text-blue-400">🎯 Win Rate: <b id="cntAssertDay">0%</b></span>
 </div>
+<button id="btnSyncTipsLivro" onclick="sincronizarTipsNoLivro()" class="w-full py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-400 font-bold text-[10px] uppercase tracking-wider">🔄 Sincronizar Tips Finalizadas ao Livro</button>
 
 <div class="px-1 mb-3">
 <div class="relative">
@@ -279,6 +280,8 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 <button onclick="switchGestaoSubTab('pl')" id="btn-gestao-pl" class="px-4 py-2 rounded-full text-xs font-bold bg-blue-600 text-white shrink-0 shadow-sm">Resumo</button>
 <button onclick="switchGestaoSubTab('estudo')" id="btn-gestao-estudo" class="px-4 py-2 rounded-full text-xs font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 shrink-0">Visão</button>
 <button onclick="switchGestaoSubTab('ultimas')" id="btn-gestao-ultimas" class="px-4 py-2 rounded-full text-xs font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 shrink-0">Histórico</button>
+<button onclick="switchGestaoSubTab('tips')" id="btn-gestao-tips" class="px-4 py-2 rounded-full text-xs font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 shrink-0">💡 Tips</button>
+<button onclick="switchGestaoSubTab('foguete')" id="btn-gestao-foguete" class="px-4 py-2 rounded-full text-xs font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 shrink-0">🚀 Foguete</button>
 </div>
 <button onclick="togglePrivacy('livro')" class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-sm shrink-0">👁️</button>
 </div>
@@ -301,6 +304,26 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 
 <div id="gestao-sub-ultimas" class="hidden space-y-4">
 <div class="apple-card p-5 rounded-3xl"><div id="listaUltimasEntradasContainer" class="space-y-2"></div></div>
+</div>
+
+<div id="gestao-sub-tips" class="hidden space-y-4">
+<p class="text-[10px] text-gray-500 px-1">Resultado das Smart Tips (A.I) sincronizadas via aba Tips - green/red validado contra o placar real, não é dinheiro real.</p>
+<div class="grid grid-cols-3 gap-3">
+<div class="apple-card p-3 rounded-2xl flex flex-col items-center justify-center"><span class="text-[9px] text-gray-500 font-bold uppercase mb-1">Greens</span><span id="tips-livro-greens" class="text-lg font-black text-green-500 font-mono">0</span></div>
+<div class="apple-card p-3 rounded-2xl flex flex-col items-center justify-center"><span class="text-[9px] text-gray-500 font-bold uppercase mb-1">Reds</span><span id="tips-livro-reds" class="text-lg font-black text-red-500 font-mono">0</span></div>
+<div class="apple-card p-3 rounded-2xl flex flex-col items-center justify-center"><span class="text-[9px] text-gray-500 font-bold uppercase mb-1">Win Rate</span><span id="tips-livro-winrate" class="text-lg font-black text-blue-500 font-mono">0%</span></div>
+</div>
+<div class="apple-card p-5 rounded-3xl"><h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 border-b border-black/5 dark:border-white/5 pb-2">Desempenho por Método</h3><div id="tips-livro-metodos" class="space-y-2"></div></div>
+</div>
+
+<div id="gestao-sub-foguete" class="hidden space-y-4">
+<p class="text-[10px] text-gray-500 px-1">Resultado das jogadas registradas na aba Foguete (Soros Dobra-Banca).</p>
+<div class="grid grid-cols-3 gap-3">
+<div class="apple-card p-3 rounded-2xl flex flex-col items-center justify-center"><span class="text-[9px] text-gray-500 font-bold uppercase mb-1">Greens</span><span id="foguete-livro-greens" class="text-lg font-black text-green-500 font-mono">0</span></div>
+<div class="apple-card p-3 rounded-2xl flex flex-col items-center justify-center"><span class="text-[9px] text-gray-500 font-bold uppercase mb-1">Reds</span><span id="foguete-livro-reds" class="text-lg font-black text-red-500 font-mono">0</span></div>
+<div class="apple-card p-3 rounded-2xl flex flex-col items-center justify-center"><span class="text-[9px] text-gray-500 font-bold uppercase mb-1">Win Rate</span><span id="foguete-livro-winrate" class="text-lg font-black text-blue-500 font-mono">0%</span></div>
+</div>
+<div class="apple-card p-5 rounded-3xl"><h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 border-b border-black/5 dark:border-white/5 pb-2">Desempenho por Método</h3><div id="foguete-livro-metodos" class="space-y-2"></div></div>
 </div>
 </div>
 
@@ -416,9 +439,50 @@ let renderDebounce = null;
 
 let favoritosIds = JSON.parse(localStorage.getItem('cr7_favoritos') || '[]');
 let fixadosIds = JSON.parse(localStorage.getItem('cr7_fixados') || '[]');
+// Tips excluídas manualmente (não são doc no Firestore - são recalculadas a cada
+// render por extrairOportunidadesJogo - então "excluir" é lembrar a chave localmente
+// pra filtrar de novo em toda renderização futura).
+let tipsExcluidasIds = JSON.parse(localStorage.getItem('cr7_tips_excluidas') || '[]');
 
 function esc(str) { return String(str||'').replace(/['"`\\]/g, "").trim(); }
+// Contador pra gerar ids únicos dos cards expansíveis do Raio-X. Resetado a cada
+// renderizarConteudoModal() pra não crescer sem fim numa sessão longa.
+let accordionSeq = 0;
+function novoAccordionId() { return 'acc-card-' + (accordionSeq++); }
+// Header clicável padrão dos cards expansíveis - mesmo padrão de toggle já usado
+// pra agrupar jogos por liga (classList.toggle('hidden') num id conhecido).
+function accordionToggleAttr(id) { return `onclick="document.getElementById('${id}').classList.toggle('hidden')"`; }
+
+// Identifica o "tipo" do valor bruto raspado pra dar uma cor de borda distinta -
+// só usado quando o documento não tem a cor real do site (docs raspados antes do
+// motor gravar corCasa/corFora/corMedia).
+function estiloValorBadge(v) {
+  const s = String(v || '').trim();
+  if (/%$/.test(s)) return 'border-cyan-500/40';
+  if (/^\d+\s*\/\s*\d+$/.test(s)) return 'border-purple-500/40';
+  if (/^-?\d+([.,]\d+)?(\s*\(\d+\))?$/.test(s)) return 'border-amber-500/40';
+  return 'border-white/5';
+}
+
+// O site já calcula bom/ruim/neutro por linha e grava isso na classe do valor
+// (color-green, color-dark-red, color-neutral...) - o motor captura esse token em
+// corCasa/corFora/corMedia. Aqui só traduzimos pro Tailwind, sem reinventar a lógica
+// de "isso é bom ou ruim" (ex.: não dá pra saber sem contexto se 20% de vitórias é
+// ruim ou bom - "Perdeu 20%" é bom, "Venceu 20%" é ruim - o site já resolveu isso).
+const MAPA_COR_SITE = {
+  'color-green': 'bg-green-500/15 border-green-500/40 text-green-400',
+  'color-dark-green': 'bg-green-500/25 border-green-500/60 text-green-300',
+  'color-red': 'bg-red-500/15 border-red-500/40 text-red-400',
+  'color-dark-red': 'bg-red-500/25 border-red-500/60 text-red-300',
+  'color-neutral': 'bg-[#121212] border-white/5 text-gray-300'
+};
+function badgeCorClasses(valor, corSite, textoFallback) {
+  if (corSite && MAPA_COR_SITE[corSite]) return MAPA_COR_SITE[corSite];
+  return `bg-[#121212] ${estiloValorBadge(valor)} ${textoFallback || 'text-gray-300'}`;
+}
 function cleanString(str) { return String(str||'').replace(/\W/g, '').toLowerCase(); }
+// Slug seguro pra usar método como parte de doc id do Firestore.
+function slugMetodo(str) { return String(str||'').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, ''); }
 
 function toggleTheme() {
   document.body.classList.toggle('dark-theme');
@@ -436,12 +500,16 @@ function salvarGeminiKey() {
 
 // Endpoint padrão da IA de alavancagem. Fica configurável porque o modelo/versão
 // do Gemini muda com frequência - trocar aqui não exige mexer no código.
-// O sufixo "-latest" é exigido pela API do Google nesta versão do endpoint.
-const GEMINI_URL_PADRAO = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+// BUG CORRIGIDO: a família 1.5 (Pro/Flash) foi desativada pelo Google - era por
+// isso que a análise não rodava em NENHUM modelo, "1.5" nem "2.0": o padrão batia
+// numa versão desligada, e a lista de obsoletos abaixo apagava a tentativa manual
+// de usar 2.0, empurrando de volta pro 1.5 quebrado. "-latest" evita quebrar de
+// novo quando o Google aposentar a versão atual.
+const GEMINI_URL_PADRAO = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 
-// Endpoints que já foram padrão antes e não funcionam - se estiverem salvos no
+// Endpoints que já foram padrão antes e não funcionam mais - se estiverem salvos no
 // localStorage venceriam o novo padrão e o Gemini continuaria quebrado.
-const GEMINI_URLS_OBSOLETAS = ['gemini-2.0-flash:generateContent'];
+const GEMINI_URLS_OBSOLETAS = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro:generateContent'];
 
 function ehUrlObsoleta(url) {
   return !!url && GEMINI_URLS_OBSOLETAS.some(obsoleta => url.includes(obsoleta));
@@ -533,18 +601,39 @@ async function testarApisCockpit() {
     }
 }
 
-const AMOSTRA_MINIMA = 3; // descarta frações tipo 1/1, 2/2 (estatisticamente inúteis)
+const AMOSTRA_MINIMA = 5; // menos de 5 jogos não conta - amostra pequena demais pra confiar
 
-// Só converte pra taxa quando o texto é EXPLICITAMENTE uma taxa ("NN%" ou "a/b").
-// Números soltos (ex.: "3", "92") NÃO são taxa - são contagens/médias brutas e
+// Só converte pra taxa quando o texto é EXPLICITAMENTE uma taxa ("NN%", "NN% (n)" ou
+// "a/b"). Números soltos (ex.: "3", "92") NÃO são taxa - são contagens/médias brutas e
 // tratá-los como % (ex.: 3 -> 3%, 92 -> 92%) foi a causa de percentuais fabricados
-// que não existem na estatística de origem. Retorna null quando não é taxa válida.
-function parseRateToPercent(rateStr) {
+// que não existem na estatística de origem. Retorna null quando não é taxa válida OU
+// quando a amostra por trás do número é menor que AMOSTRA_MINIMA.
+//
+// totalFallback: quando o texto é só "NN%" (sem contagem visível, ex.: Aproveitamento),
+// não tem como saber a amostra a partir do próprio texto - o chamador passa o "Total de
+// Jogos" daquele lado (casa/fora) pra servir de amostra. Sem fallback, o corte de amostra
+// simplesmente não se aplica (ficaria bloqueando tudo por falta de informação).
+function parseRateToPercent(rateStr, totalFallback) {
   if (!rateStr) return null;
   const str = String(rateStr).trim();
+
+  // "22% (2)" - taxa com a contagem real entre parênteses (comum em Desempenho por
+  // Tempo/Gols por Tempo, ex.: "Venceu 22% (2)"). O (n) é a amostra real dessa linha
+  // específica - mais preciso que qualquer fallback externo, então tem prioridade.
+  const comContagem = str.match(/^(-?\d+(?:[.,]\d+)?)%\s*\((\d+)\)$/);
+  if (comContagem) {
+    const rate = parseFloat(comContagem[1].replace(',', '.')) / 100;
+    const n = parseInt(comContagem[2], 10);
+    const amostra = rate > 0 ? Math.round(n / rate) : (totalFallback ?? n);
+    if (!amostra || amostra < AMOSTRA_MINIMA) return null;
+    return rate;
+  }
+
   if (str.includes('%')) {
     const num = parseFloat(str.replace('%', ''));
-    return isNaN(num) ? null : num / 100;
+    if (isNaN(num)) return null;
+    if (totalFallback !== null && totalFallback !== undefined && totalFallback < AMOSTRA_MINIMA) return null;
+    return num / 100;
   }
   if (str.includes('/')) {
     const parts = str.split('/');
@@ -572,12 +661,19 @@ function ehMercadoDeTime(metodo) {
   return m.includes('BACK FAVORITO') || m.includes('LAY ZEBRA') || m.includes('1X2');
 }
 
-function combinarCasaFora(valCasa, valFora, metodo) {
+// pesoCasa/pesoFora (nº de jogos de cada lado, quando conhecido) evitam que um
+// lado com amostra grande (ex.: 20 jogos) pese igual a um lado com amostra pequena
+// (ex.: 4 jogos) só porque os dois passaram no corte mínimo de AMOSTRA_MINIMA -
+// sem isso, um mandante com histórico enorme e um visitante com histórico curto
+// contam 50/50 na média, inflando o peso do lado com menos informação real.
+function combinarCasaFora(valCasa, valFora, metodo, pesoCasa, pesoFora) {
   const valores = [valCasa, valFora].filter(v => v !== null && !isNaN(v));
   if (valores.length === 0) return null;
   if (valores.length === 1) return valores[0];
   if (ehMercadoDeTime(metodo)) return Math.max(...valores);
-  return (valores[0] + valores[1]) / 2;
+  const wCasa = (pesoCasa && pesoCasa > 0) ? pesoCasa : 1;
+  const wFora = (pesoFora && pesoFora > 0) ? pesoFora : 1;
+  return (valCasa * wCasa + valFora * wFora) / (wCasa + wFora);
 }
 
 function getMethodPillStyle(metodo) {
@@ -599,14 +695,22 @@ function getMethodPillStyle(metodo) {
   return 'bg-purple-600/20 text-purple-300 border border-purple-500/40 shadow-sm';
 }
 
-// Quando a linha vem do toggle "Segundo" (2º tempo), troca o rótulo "HT" por "2T"
-// pra não exibir um mercado de 2º tempo como se fosse de 1º tempo.
-function ajustarMetodoPorPeriodo(metodo, periodo) {
-  if (periodo !== '2T') return metodo;
-  return metodo.replace('HT', '2T');
-}
+// O sub-rótulo real do site ("Primeiro"/"Segundo", capturado em subRotulo) é que diz
+// de qual bloco (1º ou 2º tempo) uma linha de Desempenho por Tempo/Gols por Tempo veio.
+function ehSegundoTempo(subRotulo) { return (subRotulo || '').toLowerCase().includes('segundo'); }
 
 const OPORTUNIDADE_PISO = 0.65; // piso mínimo global - abaixo disso nem entra na lista
+// Mercados HT/2T usam metade dos jogos como amostra (só o 1º ou só o 2º tempo de
+// cada partida) - a mesma amostra bruta rende uma amostra efetiva menor e mais
+// volátil que um mercado FT, então exige-se uma taxa mais alta pra compensar.
+const OPORTUNIDADE_PISO_VOLATIL = 0.70;
+function ehMetodoVolatil(metodo) { return /\bHT\b|\b2T\b|2ºT/i.test(metodo || ''); }
+
+// Peso de cada fonte no bônus de cruzamento (ver seção 4.5 abaixo) - Desempenho/Gols
+// vêm do histórico específico do time (mais confiável), Tendências é forma recente
+// agregada, Confronto Direto é o histórico do confronto (pode ser mais antigo).
+const PESO_FONTE = { 'Desempenho': 3, 'Gols': 3, 'Tendências Recentes': 2, 'Confronto Direto': 1 };
+function pesoDaFonte(origem) { return PESO_FONTE[origem] ?? 1; }
 
 // Retorna a lista COMPLETA de oportunidades válidas (>= 65%) do jogo, cada uma
 // carregando "fonte" (de onde no site veio o número) pra ser auditável no card.
@@ -628,8 +732,19 @@ function extrairOportunidadesJogo(j) {
     // Raio-X Completo, com o contexto da seção, onde fazem sentido).
     const EH_SEQUENCIA_CONDICIONAL = /APÓS ABRIR|APOS ABRIR|APÓS SAIR|APOS SAIR|BUSCOU EMPATE|BUSCOU NOVAMENTE|VIROU E VENCEU|SOFREU NOVAMENTE|AMPLIOU O PLACAR|SOFREU O EMPATE/;
 
+    // "Total de Jogos" (Aproveitamento) é a amostra por trás de toda taxa "solta"
+    // (sem contagem visível, tipo "Marcou Gol: 70%") das seções Gols e Desempenho -
+    // sem isso não tem como aplicar o corte de AMOSTRA_MINIMA nelas. Calculado uma
+    // vez aqui em cima porque Gols e Desempenho são o MESMO time/amostra histórica.
+    const totalJogosRow = rDesempenho.find(x => (x.metrica || '').toLowerCase().includes('total de jogos'));
+    const totalJogosCasa = totalJogosRow ? parseInt(totalJogosRow.casa) || 0 : null;
+    const totalJogosFora = totalJogosRow ? parseInt(totalJogosRow.fora) || 0 : null;
+    const desempenhoTemAmostra = totalJogosRow === undefined || (totalJogosCasa > 0 || totalJogosFora > 0);
+
     const addOportunidade = (metodo, regra, rateVal, rateStr, origem, periodo, casaFora) => {
-      if (rateVal === null || rateVal < OPORTUNIDADE_PISO) return;
+      if (rateVal === null) return;
+      const piso = ehMetodoVolatil(metodo) ? OPORTUNIDADE_PISO_VOLATIL : OPORTUNIDADE_PISO;
+      if (rateVal < piso) return;
       if (metodo.includes('UNDER')) {
         const linha = extrairLinhaNumerica(regra) ?? extrairLinhaNumerica(metodo);
         if (linha !== null && linha >= 3.5) return; // acima de 3.5 é quase sempre verdade, não é uma oportunidade de verdade
@@ -644,6 +759,12 @@ function extrairOportunidadesJogo(j) {
     };
 
     // =========== 1. TENDÊNCIAS (rate vem como "3/5", "7/10", "80%", etc.) ===========
+    // BUG CORRIGIDO: Tendências Recentes é um recorte de forma recente (últimos N
+    // jogos, sem distinção de tempo de jogo) - nunca teve como saber se é HT ou 2T.
+    // O código antigo checava se o texto continha "HT" (nunca acontece aqui) ou o
+    // dígito "1" (bate por coincidência em "Menos de 1.5 Gols" etc.), e por padrão
+    // caía em "UNDER LIMITE 2ºT" - fabricando uma afirmação de 2º tempo que a
+    // Tendência nunca fez. Tendências são sempre sobre o jogo inteiro (FT).
     for (const t of tendencias) {
       if (isCardOrCornerRule(t.regra)) continue;
       if (EH_SEQUENCIA_CONDICIONAL.test((t.regra || '').toUpperCase())) continue;
@@ -651,20 +772,17 @@ function extrairOportunidadesJogo(j) {
       const rUpper = (t.regra || '').toUpperCase();
       let metodo = '';
 
-      if (rUpper.includes('0.5') && (rUpper.includes('HT') || rUpper.includes('1'))) metodo = 'OVER 0.5 HT';
-      else if (rUpper.includes('UNDER') || rUpper.includes('MENOS')) {
-        if (rUpper.includes('HT') || rUpper.includes('1')) metodo = 'UNDER LIMITE HT';
-        else metodo = 'UNDER LIMITE 2ºT';
-      }
+      if (rUpper.includes('UNDER') || rUpper.includes('MENOS')) metodo = 'UNDER LIMITE FT';
       else if (rUpper.includes('VITÓRIA') || rUpper.includes('VITORIA') || rUpper.includes('VENCE') || rUpper.includes('SEM DERROTA')) metodo = 'BACK FAVORITO';
-      else if (rUpper.includes('AMBAS') || rUpper.includes('OVER') || rUpper.includes('MAIS')) metodo = 'OVER LIMITE FT';
-      else if (rUpper.includes('GOL') || rUpper.includes('MARCA')) metodo = 'OVER LIMITE FT';
-      else metodo = 'OVER LIMITE FT';
+      else metodo = 'OVER LIMITE FT'; // Ambas Marcam, Mais de X Gols, Marcou Gol etc.
 
       addOportunidade(metodo, t.regra, rateVal, t.rate, 'Tendências Recentes');
     }
 
     // =========== 2. CONFRONTO DIRETO ===========
+    // Mesmo caso de Tendências: é um recorte histórico do confronto entre os dois
+    // times, sem recorte de tempo de jogo - "UNDER LIMITE HT" fixo aqui era o mesmo
+    // rótulo fabricado.
     for (const c of confronto) {
       if (isCardOrCornerRule(c.metrica)) continue;
       if (EH_SEQUENCIA_CONDICIONAL.test((c.metrica || '').toUpperCase())) continue;
@@ -672,11 +790,9 @@ function extrairOportunidadesJogo(j) {
       const mUpper = (c.metrica || '').toUpperCase();
       let metodo = '';
 
-      if (mUpper.includes('AMBAS MARCAM') || mUpper.includes('AMBAS')) metodo = 'OVER LIMITE FT';
-      else if (mUpper.includes('MAIS DE') || mUpper.includes('OVER')) metodo = 'OVER LIMITE FT';
-      else if (mUpper.includes('MENOS DE') || mUpper.includes('UNDER')) metodo = 'UNDER LIMITE HT';
+      if (mUpper.includes('MENOS DE') || mUpper.includes('UNDER')) metodo = 'UNDER LIMITE FT';
       else if (mUpper.includes('VITÓRIA') || mUpper.includes('VITORIA') || mUpper.includes('SEM DERROTA')) metodo = 'BACK FAVORITO';
-      else metodo = 'OVER LIMITE FT';
+      else metodo = 'OVER LIMITE FT'; // Ambas Marcam, Mais de X, etc.
 
       addOportunidade(metodo, c.metrica, rateVal, c.valor, 'Confronto Direto');
     }
@@ -684,51 +800,97 @@ function extrairOportunidadesJogo(j) {
     // =========== 3. GOLS (Raio-X) - só aceita valores que sejam % ou fração reais ===========
     // Média sempre calculada pelos DOIS times (combinarCasaFora) - nunca usa uma
     // "média" pronta que o site mostra, cuja base de cálculo a gente não controla.
+    //
+    // BUG CORRIGIDO: o método HT/2T era decidido lendo se o TEXTO da métrica continha
+    // "HT" ou o dígito "1" - "Over 1.5 Gols" batia em "includes('1')" por coincidência
+    // (o "1" de "1.5"), então uma linha de "Total de Gols" (temporada inteira, 90
+    // minutos) virava tip "OVER LIMITE HT" como se fosse sobre o 1º tempo. A única
+    // seção do site com recorte real de meio-tempo é "Gols por Tempo" (subRotulo
+    // Primeiro/Segundo) - "Total de Gols" e "Gols Marcados e Sofridos" são sobre o
+    // jogo inteiro (FT), nunca devem virar palpite de HT/2T.
     for (const g of rGols) {
       if (!g.metrica || isCardOrCornerRule(g.metrica)) continue;
       const mUpper = g.metrica.toUpperCase();
       if (g.tipo === 'relogio') continue;
 
+      const ehPorTempo = (g.secao || '').toLowerCase().includes('gols por tempo');
+      const segundo = ehSegundoTempo(g.subRotulo);
+      const sufixo = ehPorTempo ? (segundo ? '2T' : 'HT') : 'FT';
+
       let metodo = '';
-      if (mUpper.includes('OVER 0.5') && mUpper.includes('HT')) metodo = 'OVER 0.5 HT';
-      else if (mUpper.includes('OVER') && (mUpper.includes('HT') || mUpper.includes('1'))) metodo = 'OVER LIMITE HT';
-      else if (mUpper.includes('OVER 1.5') || mUpper.includes('OVER 2.5') || mUpper.includes('OVER 3.5')) metodo = 'OVER LIMITE FT';
-      else if (mUpper.includes('UNDER') && (mUpper.includes('HT') || mUpper.includes('1'))) metodo = 'UNDER LIMITE HT';
-      else if (mUpper.includes('UNDER 2.5') || mUpper.includes('UNDER 3.5')) metodo = 'UNDER LIMITE 2ºT';
-      else if (mUpper.includes('MÉDIA') || mUpper.includes('MEDIA')) metodo = 'OVER LIMITE FT';
-      else continue; // "Gols Marcados"/"Gols Sofridos" brutos (contagens, não taxa) ficam de fora daqui
+      if (mUpper.includes('OVER 0.5')) {
+        // "Over 0.5 Gols" da temporada inteira é quase sempre verdade (>90%) - não é
+        // sinal de nada, só entra quando é HT/2T específico de fato (dado mais raro).
+        if (ehPorTempo) metodo = `OVER 0.5 ${sufixo}`;
+      }
+      else if (mUpper.includes('OVER 1.5') || mUpper.includes('OVER 2.5') || mUpper.includes('OVER 3.5')) metodo = `OVER LIMITE ${sufixo}`;
+      else if (mUpper.includes('UNDER 2.5') || mUpper.includes('UNDER 3.5')) metodo = `UNDER LIMITE ${sufixo}`;
+      else if ((mUpper.includes('MÉDIA') || mUpper.includes('MEDIA')) && !ehPorTempo) metodo = 'OVER LIMITE FT';
+      if (!metodo) continue; // "Gols Marcados"/"Gols Sofridos" brutos (contagens) e casos acima ficam de fora
 
-      metodo = ajustarMetodoPorPeriodo(metodo, g.periodo);
+      const valCasa = parseRateToPercent(g.casa, totalJogosCasa);
+      const valFora = parseRateToPercent(g.fora, totalJogosFora);
+      const combinado = combinarCasaFora(valCasa, valFora, metodo, totalJogosCasa, totalJogosFora);
 
-      const valCasa = parseRateToPercent(g.casa);
-      const valFora = parseRateToPercent(g.fora);
-      const combinado = combinarCasaFora(valCasa, valFora, metodo);
-
-      addOportunidade(metodo, g.metrica, combinado, `${g.casa ?? ''} / ${g.fora ?? ''}`, 'Gols', g.periodo, { casa: g.casa, fora: g.fora });
+      addOportunidade(metodo, g.metrica, combinado, `${g.casa ?? ''} / ${g.fora ?? ''}`, 'Gols', ehPorTempo ? sufixo : null, { casa: g.casa, fora: g.fora });
     }
 
     // =========== 4. DESEMPENHO (Raio-X) - % ou frações ===========
-    for (const d of rDesempenho) {
+    // MESMO BUG do lado de Gols: "Marcou Gol"/"Sofreu Gol" existe tanto em
+    // Aproveitamento (taxa da TEMPORADA INTEIRA, sem recorte de tempo) quanto em
+    // Desempenho por Tempo > Primeiro/Segundo (recorte real de meio-tempo). O código
+    // antigo não checava de qual seção a linha vinha e rotulava as duas como "HT" -
+    // às vezes usando o número da temporada inteira como se fosse "esse time marca
+    // no 1º tempo em X% dos jogos", o que é uma conta inventada, não o que o site
+    // mostra. Só "Desempenho por Tempo" tem recorte real de meio-tempo.
+    for (const d of (desempenhoTemAmostra ? rDesempenho : [])) {
       if (!d.metrica || isCardOrCornerRule(d.metrica)) continue;
       const mUpper = d.metrica.toUpperCase();
       if (EH_SEQUENCIA_CONDICIONAL.test(mUpper)) continue;
 
+      const ehPorTempo = (d.secao || '').toLowerCase().includes('desempenho por tempo');
+      const segundo = ehSegundoTempo(d.subRotulo);
+      const sufixo = segundo ? '2T' : 'HT';
+
       let metodo = '';
-      if (mUpper.includes('MARCOU PRIMEIRO') || mUpper.includes('PRIMEIRO GOL')) metodo = 'OVER 0.5 HT';
-      else if (mUpper.includes('MARCOU GOL')) metodo = 'MARCA GOL HT';
-      else if (mUpper.includes('SOFREU GOL')) metodo = 'SOFRE GOL HT';
-      else if (mUpper.includes('VENCEU')) metodo = 'BACK FAVORITO'; // só o "Venceu X%" simples - vira taxa de vitória
+      if (mUpper.includes('MARCOU PRIMEIRO') || mUpper.includes('PRIMEIRO GOL')) metodo = 'OVER 0.5 HT'; // este É sobre o 1º gol do jogo por natureza, independe da seção
+      else if (mUpper.includes('MARCOU GOL')) { if (ehPorTempo) metodo = `MARCA GOL ${sufixo}`; }
+      else if (mUpper.includes('SOFREU GOL')) { if (ehPorTempo) metodo = `SOFRE GOL ${sufixo}`; }
+      else if (mUpper.includes('VENCEU') && !ehPorTempo) metodo = 'BACK FAVORITO'; // só a taxa de vitória da temporada - "Venceu" de Desempenho por Tempo é sobre vencer aquele TEMPO, mercado diferente que não temos
       else if (mUpper.includes('POSSE') || mUpper.includes('POSIÇÃO') || mUpper.includes('POSICAO')) continue;
-      else continue; // "Virou e Venceu", "Ampliou o Placar" etc. - sem relação clara com um método, ficam só no Raio-X
+      if (!metodo) continue; // "Virou e Venceu", "Ampliou o Placar" etc. - sem relação clara com um método, ficam só no Raio-X
 
-      metodo = ajustarMetodoPorPeriodo(metodo, d.periodo);
+      const valCasa = parseRateToPercent(d.casa, totalJogosCasa);
+      const valFora = parseRateToPercent(d.fora, totalJogosFora);
+      const combinado = combinarCasaFora(valCasa, valFora, metodo, totalJogosCasa, totalJogosFora);
 
-      const valCasa = parseRateToPercent(d.casa);
-      const valFora = parseRateToPercent(d.fora);
-      const combinado = combinarCasaFora(valCasa, valFora, metodo);
-
-      addOportunidade(metodo, d.metrica, combinado, `${d.casa ?? ''} / ${d.fora ?? ''}`, 'Desempenho', d.periodo, { casa: d.casa, fora: d.fora });
+      addOportunidade(metodo, d.metrica, combinado, `${d.casa ?? ''} / ${d.fora ?? ''}`, 'Desempenho', ehPorTempo ? sufixo : null, { casa: d.casa, fora: d.fora });
     }
+
+    // =========== 4.5 CRUZAMENTO DE FONTES ===========
+    // Quando 2+ fontes independentes (Tendências, Confronto Direto, Gols, Desempenho)
+    // apontam pro MESMO método, isso é um sinal mais forte que uma fonte isolada -
+    // soma um bônus de confiança e marca quantas fontes concordam (badge "confirmado").
+    // O bônus é ponderado pela qualidade da fonte que CONFIRMA: Desempenho/Gols vêm de
+    // dado mais recente e específico do time (peso 3), Tendências é forma recente mas
+    // agregada (peso 2), Confronto Direto é histórico do confronto e pode ser mais
+    // antigo (peso 1) - uma tip confirmada por Desempenho vale mais que confirmada só
+    // por Confronto Direto.
+    const origensPorMetodo = {};
+    oportunidades.forEach(o => {
+      if (!origensPorMetodo[o.metodo]) origensPorMetodo[o.metodo] = new Set();
+      origensPorMetodo[o.metodo].add(o.fonte.origem);
+    });
+    oportunidades.forEach(o => {
+      const origens = origensPorMetodo[o.metodo];
+      if (origens.size >= 2) {
+        o.confirmadoPorFontes = origens.size;
+        // Soma o peso das OUTRAS fontes que confirmam (não conta a própria origem).
+        let bonus = 0;
+        origens.forEach(origem => { if (origem !== o.fonte.origem) bonus += pesoDaFonte(origem); });
+        o.percent = Math.min(99, o.percent + bonus);
+      }
+    });
 
     // =========== 5. DEDUP + ORDENA ===========
     const vistos = new Set();
@@ -792,9 +954,15 @@ function traduzirLinhaSegura(regra, oddC, oddF) {
 
 // Extrai a linha numérica exata citada na regra/método (ex.: "Mais de 2.5 Gols" -> 2.5),
 // pra validar Green/Red contra o número real do mercado em vez de um balde genérico.
+// Extrai a "linha" de aposta (o X de Over/Under X Gols) de um texto. Prioriza o
+// número que vem logo depois de Over/Under/Mais de/Menos de - sem isso, um texto
+// com mais de um número solto (ex.: "Marcou 2 de 5 jogos") arriscaria pegar o
+// número errado como se fosse a linha.
 function extrairLinhaNumerica(texto) {
   if (!texto) return null;
-  const m = String(texto).match(/(\d+(?:[.,]\d+)?)/);
+  const str = String(texto);
+  const comContexto = str.match(/(?:over|under|mais de|menos de)\s*(\d+(?:[.,]\d+)?)/i);
+  const m = comContexto || str.match(/(\d+(?:[.,]\d+)?)/);
   if (!m) return null;
   const n = parseFloat(m[1].replace(',', '.'));
   return isNaN(n) ? null : n;
@@ -825,6 +993,15 @@ function jogoRealmenteFinalizado(j) {
   return (Date.now() - inicio.getTime()) >= 0;
 }
 
+// Descobre qual lado era o favorito pela odd registrada no jogo (menor odd =
+// favorito). Retorna null quando não dá pra saber (odd ausente ou empatada -
+// nesse caso não existe "favorito" claro pra validar).
+function favoritoPelaOdd(j) {
+  const oc = parseFloat(j.oddCasa), of = parseFloat(j.oddFora);
+  if (isNaN(oc) || isNaN(of) || oc === of) return null;
+  return oc < of ? 'casa' : 'fora';
+}
+
 // Valida Green/Red de UMA oportunidade específica contra o placar real do jogo.
 // Retorna true (green), false (red) ou null (não dá pra validar ainda - ex.:
 // mercado de HT/2ºT real sem o placar do intervalo capturado pelo motor).
@@ -836,8 +1013,17 @@ function validarGreenRed(opp, j) {
   const totalFT = gcNum + gfNum;
   const linha = extrairLinhaNumerica(opp.regra) ?? extrairLinhaNumerica(opp.metodo);
 
-  const temHT = j.golsHTCasa !== undefined && j.golsHTCasa !== null && j.golsHTFora !== undefined && j.golsHTFora !== null;
-  const totalHT = temHT ? (parseInt(j.golsHTCasa) || 0) + (parseInt(j.golsHTFora) || 0) : null;
+  const temHTPlacar = j.golsHTCasa !== undefined && j.golsHTCasa !== null && j.golsHTFora !== undefined && j.golsHTFora !== null;
+  // Respaldo: quando o site não deu o placar do intervalo (raspagem só pega isso
+  // uma vez), mas a API ao vivo trouxe os gols com minuto, deriva o HT contando
+  // quem marcou até o 45' - assim os métodos HT/2T continuam validáveis mesmo sem
+  // o placar de intervalo raspado.
+  const golsDet = Array.isArray(j.golsDetalhados) ? j.golsDetalhados : [];
+  const temHTDerivado = !temHTPlacar && golsDet.some(g => g.tempo);
+  const temHT = temHTPlacar || temHTDerivado;
+  const totalHT = temHTPlacar
+    ? (parseInt(j.golsHTCasa) || 0) + (parseInt(j.golsHTFora) || 0)
+    : (temHTDerivado ? golsDet.filter(g => g.tempo === '1T').length : null);
   const total2T = temHT ? totalFT - totalHT : null;
 
   const eh2TReal = opp.tempo === '2T' || metodo.endsWith(' 2T') || metodo.includes('2T-');
@@ -856,8 +1042,28 @@ function validarGreenRed(opp, j) {
   }
 
   // Mercados de resultado (não são linha de gols)
-  if (metodo.includes('BACK FAVORITO') || metodo.includes('1X2')) return gcNum !== gfNum;
-  if (metodo.includes('LAY ZEBRA')) return gcNum !== gfNum;
+  //
+  // BUG CORRIGIDO: BACK FAVORITO/1X2/LAY ZEBRA validavam só "não empatou"
+  // (gcNum !== gfNum), sem checar QUEM venceu - um favorito que PERDE marcava
+  // GREEN por engano (não empatou = green, mesmo com o azarão vencendo). Agora
+  // usa a odd registrada no jogo pra saber de fato quem era o favorito.
+  if (metodo.includes('BACK FAVORITO') || metodo.includes('1X2')) {
+    const favorito = favoritoPelaOdd(j);
+    if (!favorito) return null; // sem odd registrada, não dá pra saber quem era favorito
+    if (gcNum === gfNum) return false; // empate = favorito não venceu
+    const casaVenceu = gcNum > gfNum;
+    return favorito === 'casa' ? casaVenceu : !casaVenceu;
+  }
+  if (metodo.includes('LAY ZEBRA')) {
+    // Lay Zebra = apostar CONTRA o azarão vencer - green quando o azarão NÃO
+    // vence (favorito vence ou empate), red só quando o azarão vence de fato.
+    const favorito = favoritoPelaOdd(j);
+    if (!favorito) return null;
+    if (gcNum === gfNum) return true; // empate = azarão não venceu
+    const casaVenceu = gcNum > gfNum;
+    const azaraoVenceu = favorito === 'casa' ? !casaVenceu : casaVenceu;
+    return !azaraoVenceu;
+  }
   if (metodo.includes('AMBAS') || metodo.includes('BTTS')) return gcNum > 0 && gfNum > 0;
   if (metodo.includes('A FRENTE')) return passaLinhaOver(totalFT, linha, 1);
 
@@ -931,14 +1137,16 @@ function getCountryPillStyleAttr(pais) {
   return `background-color:hsl(${hue} 68% 30%) !important; color:#fff !important; font-weight:900;`;
 }
 
-// Só entra Série B/Segunda Divisão quando for Brasileirão Série B ou Bundesliga 2
+// Só entra Série B/Segunda Divisão quando for Brasileirão Série B ou Bundesliga 2 -
+// o nome da competição vem genérico ("Segunda Divisão"/"Série B"), então quem distingue
+// a liga é o país, não a palavra "Brasileirão"/"Bundesliga" no texto
 function isLigaBloqueada(pais, competicao) {
   const c = (competicao || '').toUpperCase();
   const p = (pais || '').toUpperCase();
   const ehSerieBOuSegunda = c.includes('SEGUNDA DIVIS') || c.includes('SÉRIE B') || c.includes('SERIE B');
   if (!ehSerieBOuSegunda) return false;
-  const ehBrasileiraoB = p.includes('BRASIL') && c.includes('BRASILEIR');
-  const ehBundesliga2 = c.includes('BUNDESLIGA') && c.includes('2');
+  const ehBrasileiraoB = p.includes('BRASIL');
+  const ehBundesliga2 = p.includes('ALEMANHA');
   return !ehBrasileiraoB && !ehBundesliga2;
 }
 
@@ -1057,28 +1265,32 @@ function renderH2HList(h2hData, teamFilter) {
 
 function renderCardGrid(titulo, lc, lf, items) {
     if(!items || !items.length) return '';
+    const accId = novoAccordionId();
     let html = `
     <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
-        <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5">
+        <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5 cursor-pointer" ${accordionToggleAttr(accId)}>
             <h4 class="text-[10px] font-black text-white uppercase tracking-wider">${titulo}</h4>
-            <div class="flex gap-10 pr-2">
-                <img src="${lc}" class="w-5 h-5 object-contain drop-shadow-md">
-                <img src="${lf}" class="w-5 h-5 object-contain drop-shadow-md">
+            <div class="flex items-center gap-3 pr-2">
+                <div class="flex gap-3">
+                    <img src="${lc}" class="w-5 h-5 object-contain drop-shadow-md">
+                    <img src="${lf}" class="w-5 h-5 object-contain drop-shadow-md">
+                </div>
+                <span class="text-gray-500 text-xs">▾</span>
             </div>
         </div>
-        <div class="p-2 space-y-1">
+        <div id="${accId}" class="p-2 space-y-1 hidden">
     `;
     items.forEach(i => {
         let valCasa = esc(i.casa);
         let valFora = esc(i.fora);
         let colorCasa = valCasa.includes('(') ? 'text-blue-300' : 'text-gray-300';
         let colorFora = valFora.includes('(') ? 'text-pink-300' : 'text-gray-300';
-        
+
         html += `
         <div class="grid grid-cols-[1.2fr_2fr_1.2fr] items-center p-1.5 hover:bg-[#2c2c2e] transition-colors rounded-xl">
-            <div class="text-center font-bold bg-[#121212] py-2 rounded-lg ${colorCasa} text-[11px] border border-white/5 shadow-sm">${valCasa}</div>
+            <div class="text-center font-bold py-2 rounded-lg text-[11px] border shadow-sm ${badgeCorClasses(valCasa, i.corCasa, colorCasa)}">${valCasa}</div>
             <div class="text-center text-[9px] font-black text-gray-500 uppercase tracking-wider px-2 leading-tight">${esc(i.metrica)}</div>
-            <div class="text-center font-bold bg-[#121212] py-2 rounded-lg ${colorFora} text-[11px] border border-white/5 shadow-sm">${valFora}</div>
+            <div class="text-center font-bold py-2 rounded-lg text-[11px] border shadow-sm ${badgeCorClasses(valFora, i.corFora, colorFora)}">${valFora}</div>
         </div>`;
     });
     html += `</div></div>`;
@@ -1087,17 +1299,32 @@ function renderCardGrid(titulo, lc, lf, items) {
 
 function renderCardGrid3Col(titulo, lc, lf, items) {
     if(!items || !items.length) return '';
+    // Site mostra os escudos dos dois times acima das colunas (igual ao card
+    // Aproveitamento) - sem isso não dá pra saber qual coluna é qual time.
+    // Nem todo card tem coluna de Média de verdade (só "Total de Gols" tem -
+    // "Desempenho por Tempo" e "Gols Marcados e Sofridos" só têm casa/fora no
+    // site) - mostrar a coluna sempre, mesmo vazia, parecia campo quebrado.
+    const temMedia = items.some(i => (i.media || '').trim() !== '');
     let html = `
     <div class="p-2 space-y-1">
+        <div class="flex justify-between items-center px-2 pb-1">
+            <div class="w-[30%]"></div>
+            <div class="flex-1 flex justify-between gap-2 px-2">
+                <div class="flex-1 flex justify-center"><img src="${lc}" class="w-5 h-5 object-contain drop-shadow-md"></div>
+                <div class="flex-1 flex justify-center"><img src="${lf}" class="w-5 h-5 object-contain drop-shadow-md"></div>
+                ${temMedia ? '<div class="flex-1 text-center text-[8px] font-black text-gray-500 uppercase tracking-wider">Média</div>' : ''}
+            </div>
+        </div>
     `;
     items.forEach(i => {
+        const vCasa = esc(i.casa), vFora = esc(i.fora), vMedia = esc(i.media || '-');
         html += `
         <div class="flex justify-between items-center p-2 hover:bg-[#2c2c2e] transition-colors rounded-xl border border-white/5 bg-[#121212]">
             <div class="w-[30%] text-left text-[9px] font-black text-gray-400 uppercase tracking-wider">${esc(i.metrica)}</div>
             <div class="flex-1 flex justify-between gap-2 px-2">
-                <div class="flex-1 text-center font-bold bg-[#1c1c1e] py-1.5 rounded text-blue-300 text-[10px] border border-white/5">${esc(i.casa)}</div>
-                <div class="flex-1 text-center font-bold bg-[#1c1c1e] py-1.5 rounded text-pink-300 text-[10px] border border-white/5">${esc(i.fora)}</div>
-                <div class="flex-1 text-center font-bold bg-[#1c1c1e] py-1.5 rounded text-gray-300 text-[10px] border border-white/5">${esc(i.media || '-')}</div>
+                <div class="flex-1 text-center font-bold py-1.5 rounded text-[10px] border ${badgeCorClasses(vCasa, i.corCasa, 'text-blue-300')}">${vCasa}</div>
+                <div class="flex-1 text-center font-bold py-1.5 rounded text-[10px] border ${badgeCorClasses(vFora, i.corFora, 'text-pink-300')}">${vFora}</div>
+                ${temMedia ? `<div class="flex-1 text-center font-bold py-1.5 rounded text-[10px] border ${badgeCorClasses(vMedia, i.corMedia, 'text-gray-300')}">${vMedia}</div>` : ''}
             </div>
         </div>`;
     });
@@ -1105,16 +1332,21 @@ function renderCardGrid3Col(titulo, lc, lf, items) {
     return html;
 }
 
-function renderRelogio(titulo, items) {
+// Relógio de Gols não é uma tabela só - é uma aba por time (o motor marca cada
+// linha com "lado":'casa'/'fora'). Sem separar por lado as duas tabelas de 6
+// janelas de tempo apareciam juntas, parecendo 12 linhas duplicadas com valores
+// diferentes.
+function renderRelogio(titulo, lc, lf, items) {
     const relogios = items.filter(x => x.tipo === 'relogio');
     if(!relogios.length) return '';
-    
-    let html = `
-    <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
-        <div class="bg-[#2c2c2e] p-3 border-b border-white/5 flex items-center justify-between">
-            <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">⏱️</span> ${titulo}</h4>
-        </div>
-        <div class="p-3">
+    const relogiosCasa = relogios.filter(r => r.lado !== 'fora');
+    const relogiosFora = relogios.filter(r => r.lado === 'fora');
+    const accId = novoAccordionId();
+    const viewGroup = accId + '-lado', idA = accId + '-casa', idB = accId + '-fora';
+
+    const renderTabela = (lista) => {
+        if (!lista.length) return '<div class="text-center text-gray-500 text-[9px] py-4">Sem dados.</div>';
+        let t = `
             <div class="flex justify-between text-[9px] text-gray-500 font-black uppercase tracking-wider pb-2 border-b border-white/5 px-2">
                 <span class="w-[20%] text-center">Tempo</span>
                 <span class="w-[15%] text-center">M</span>
@@ -1123,33 +1355,55 @@ function renderRelogio(titulo, items) {
                 <span class="w-[25%] text-center text-red-400">Sofrido</span>
             </div>
             <div class="space-y-1 mt-2">`;
-            
-    relogios.forEach(r => {
-         html += `
-         <div class="flex justify-between items-center bg-[#121212] p-2 rounded-lg border border-white/5 hover:bg-[#2c2c2e] transition-colors">
-             <span class="w-[20%] text-center font-mono text-[10px] font-bold text-gray-300">${r.tempo}</span>
-             <span class="w-[15%] text-center font-mono text-[10px] font-bold text-gray-400">${r.m}</span>
-             <span class="w-[15%] text-center font-mono text-[10px] font-bold text-gray-400">${r.s}</span>
-             <span class="w-[25%] text-center font-mono text-[10px] font-black text-green-400 bg-green-500/10 py-1 rounded">${r.marcado}</span>
-             <span class="w-[25%] text-center font-mono text-[10px] font-black text-red-400 bg-red-500/10 py-1 rounded">${r.sofrido}</span>
-         </div>`;
-    });
-    html += `</div></div></div>`;
-    return html;
+        lista.forEach(r => {
+            t += `
+            <div class="flex justify-between items-center bg-[#121212] p-2 rounded-lg border border-white/5 hover:bg-[#2c2c2e] transition-colors">
+                <span class="w-[20%] text-center font-mono text-[10px] font-bold text-gray-300">${r.tempo}</span>
+                <span class="w-[15%] text-center font-mono text-[10px] font-bold text-gray-400">${r.m}</span>
+                <span class="w-[15%] text-center font-mono text-[10px] font-bold text-gray-400">${r.s}</span>
+                <span class="w-[25%] text-center font-mono text-[10px] font-black text-green-400 bg-green-500/10 py-1 rounded">${r.marcado}</span>
+                <span class="w-[25%] text-center font-mono text-[10px] font-black text-red-400 bg-red-500/10 py-1 rounded">${r.sofrido}</span>
+            </div>`;
+        });
+        t += `</div>`;
+        return t;
+    };
+
+    return `
+    <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
+        <div class="bg-[#2c2c2e] p-3 border-b border-white/5 flex items-center justify-between">
+            <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">⏱️</span> ${titulo}</h4>
+            <div class="flex items-center gap-2">
+                <div class="flex bg-[#121212] rounded-lg p-1 border border-white/5">
+                    <button onclick="window.toggleUiTab(this, '${viewGroup}', '${idA}')" class="px-3 py-1.5 rounded-md bg-[#3a3a3c] shadow-sm transition-all"><img src="${lc}" class="w-4 h-4 object-contain"></button>
+                    <button onclick="window.toggleUiTab(this, '${viewGroup}', '${idB}')" class="px-3 py-1.5 rounded-md text-gray-500 hover:text-gray-300 transition-all"><img src="${lf}" class="w-4 h-4 object-contain"></button>
+                </div>
+                <span class="text-gray-500 text-xs cursor-pointer px-1" ${accordionToggleAttr(accId)}>▾</span>
+            </div>
+        </div>
+        <div id="${accId}" class="p-3 hidden">
+            <div id="${idA}" class="${viewGroup}">${renderTabela(relogiosCasa)}</div>
+            <div id="${idB}" class="${viewGroup} hidden">${renderTabela(relogiosFora)}</div>
+        </div>
+    </div>`;
 }
 
 function renderCardComSeparador(titulo, icon, lc, lf, grupo1, grupo2) {
     if(!grupo1.length && !grupo2.length) return '';
+    const accId = novoAccordionId();
     let html = `
     <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
-        <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5">
+        <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5 cursor-pointer" ${accordionToggleAttr(accId)}>
             <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">${icon}</span> ${titulo}</h4>
-            <div class="flex gap-8 pr-2">
-                <img src="${lc}" class="w-5 h-5 object-contain drop-shadow-md">
-                <img src="${lf}" class="w-5 h-5 object-contain drop-shadow-md">
+            <div class="flex items-center gap-3 pr-2">
+                <div class="flex gap-3">
+                    <img src="${lc}" class="w-5 h-5 object-contain drop-shadow-md">
+                    <img src="${lf}" class="w-5 h-5 object-contain drop-shadow-md">
+                </div>
+                <span class="text-gray-500 text-xs">▾</span>
             </div>
         </div>
-        <div class="p-2 space-y-1">`;
+        <div id="${accId}" class="p-2 space-y-1 hidden">`;
         
     const renderRow = (i) => {
         let valCasa = esc(i.casa);
@@ -1158,9 +1412,9 @@ function renderCardComSeparador(titulo, icon, lc, lf, grupo1, grupo2) {
         let colorFora = valFora.includes('(') ? 'text-pink-300' : 'text-gray-300';
         return `
         <div class="grid grid-cols-[1.2fr_2fr_1.2fr] items-center p-1.5 hover:bg-[#2c2c2e] transition-colors rounded-xl">
-            <div class="text-center font-bold bg-[#121212] py-2 rounded-lg ${colorCasa} text-[11px] border border-white/5 shadow-sm">${valCasa}</div>
+            <div class="text-center font-bold py-2 rounded-lg text-[11px] border shadow-sm ${badgeCorClasses(valCasa, i.corCasa, colorCasa)}">${valCasa}</div>
             <div class="text-center text-[9px] font-black text-gray-400 uppercase tracking-wider px-2 leading-tight">${esc(i.metrica)}</div>
-            <div class="text-center font-bold bg-[#121212] py-2 rounded-lg ${colorFora} text-[11px] border border-white/5 shadow-sm">${valFora}</div>
+            <div class="text-center font-bold py-2 rounded-lg text-[11px] border shadow-sm ${badgeCorClasses(valFora, i.corFora, colorFora)}">${valFora}</div>
         </div>`;
     };
         
@@ -1204,22 +1458,92 @@ function temSecoes(linhas) {
 function renderCardToggle(titulo, icon, lc, lf, viewGroupId, labelA, itemsA, labelB, itemsB) {
     if (!itemsA.length && !itemsB.length) return '';
     const idA = viewGroupId + '-a', idB = viewGroupId + '-b';
+    const accId = novoAccordionId();
     const semDados = '<div class="text-center text-gray-500 text-[9px] py-4">Sem dados.</div>';
     return `
     <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
         <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5">
             <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">${icon}</span> ${titulo}</h4>
-            <div class="flex bg-[#121212] rounded-lg p-1 border border-white/5">
-                <button onclick="window.toggleUiTab(this, '${viewGroupId}', '${idA}')" class="px-3 py-1.5 text-[9px] rounded-md bg-[#3a3a3c] text-white font-bold shadow-sm transition-all uppercase tracking-wider">${labelA}</button>
-                <button onclick="window.toggleUiTab(this, '${viewGroupId}', '${idB}')" class="px-3 py-1.5 text-[9px] rounded-md text-gray-500 hover:text-gray-300 font-bold transition-all uppercase tracking-wider">${labelB}</button>
+            <div class="flex items-center gap-2">
+                <div class="flex bg-[#121212] rounded-lg p-1 border border-white/5">
+                    <button onclick="window.toggleUiTab(this, '${viewGroupId}', '${idA}')" class="px-3 py-1.5 text-[9px] rounded-md bg-[#3a3a3c] text-white font-bold shadow-sm transition-all uppercase tracking-wider">${labelA}</button>
+                    <button onclick="window.toggleUiTab(this, '${viewGroupId}', '${idB}')" class="px-3 py-1.5 text-[9px] rounded-md text-gray-500 hover:text-gray-300 font-bold transition-all uppercase tracking-wider">${labelB}</button>
+                </div>
+                <span class="text-gray-500 text-xs cursor-pointer px-1" ${accordionToggleAttr(accId)}>▾</span>
             </div>
         </div>
-        <div id="${idA}" class="${viewGroupId}">${renderCardGrid3Col('', lc, lf, itemsA) || semDados}</div>
-        <div id="${idB}" class="${viewGroupId} hidden">${renderCardGrid3Col('', lc, lf, itemsB) || semDados}</div>
+        <div id="${accId}" class="hidden">
+            <div id="${idA}" class="${viewGroupId}">${renderCardGrid3Col('', lc, lf, itemsA) || semDados}</div>
+            <div id="${idB}" class="${viewGroupId} hidden">${renderCardGrid3Col('', lc, lf, itemsB) || semDados}</div>
+        </div>
     </div>`;
 }
 
 let estadoAoVivoAnterior = {};
+
+// Chamado automaticamente quando um jogo CONFIRMA status FT (independente de qual
+// mecanismo atualizou isso - a API ao vivo a cada 5min ou a raspagem completa do
+// site) - grava green/red no Livro pras Tips e pro Foguete sem precisar de clique
+// manual. Reaproveita a MESMA lógica de validação já usada nos botões manuais
+// (validarGreenRed, favoritoPelaOdd) - não inventa conta nova, só automatiza o disparo.
+async function autoResolverOperacoesDoJogo(j) {
+  if (!jogoRealmenteFinalizado(j)) return;
+  if (isLigaBloqueada(j.pais, j.competicao)) return;
+  const sId = cleanString(j.id || j.mandante + j.visitante);
+
+  try {
+    const ops = extrairOportunidadesJogo(j).filter(o => o.percent >= 65);
+    const writes = [];
+    ops.forEach(op => {
+      const resultado = validarGreenRed(op, j);
+      if (resultado === null) return; // mercado ainda não validável (ex.: falta placar do HT)
+      writes.push({
+        id: 'tips_' + sId + '_' + slugMetodo(op.metodo),
+        data: {
+          data: j.dataJogo || '',
+          liga: `${j.pais || ''} - ${j.competicao || ''}`,
+          jogo: `${j.mandante} x ${j.visitante}`,
+          mercado: op.regra || op.metodo,
+          tipo: 'SISTEMA',
+          metodo: op.metodo,
+          status: resultado ? 'GREEN' : 'RED',
+          stake: 0,
+          pl: resultado ? 25.00 : -25.00,
+          origem: 'tips'
+        }
+      });
+    });
+    if (writes.length) {
+      const batch = db.batch();
+      writes.forEach(w => batch.set(db.collection('diario_operacoes').doc(w.id), w.data));
+      await batch.commit();
+    }
+  } catch (e) { console.error('Erro ao auto-resolver Tips', e); }
+
+  try {
+    // Foguete só existe pra jogos com odd de favorito claro (1 a 1.5) - mesmo
+    // critério usado em renderizarAlavancagem() pra listar o jogo como candidato.
+    const oc = parseFloat(j.oddCasa), of = parseFloat(j.oddFora);
+    const elegivel = (!isNaN(oc) && oc > 1 && oc <= 1.5) || (!isNaN(of) && of > 1 && of <= 1.5);
+    if (!elegivel) return;
+    const favorito = favoritoPelaOdd(j);
+    if (!favorito) return;
+    const gc = parseInt(j.golsCasa) || 0, gf = parseInt(j.golsFora) || 0;
+    const favoritoVenceu = gc === gf ? false : (favorito === 'casa' ? gc > gf : gf > gc);
+    await db.collection('diario_operacoes').doc('foguete_' + sId).set({
+      data: j.dataJogo || '',
+      liga: `${j.pais || ''} - ${j.competicao || ''}`,
+      jogo: `${j.mandante} x ${j.visitante}`,
+      mercado: 'Alavancagem (odd baixa)',
+      tipo: 'SISTEMA',
+      metodo: 'Soros Dobra-Banca',
+      status: favoritoVenceu ? 'GREEN' : 'RED',
+      stake: 0,
+      pl: favoritoVenceu ? 25.00 : -25.00,
+      origem: 'foguete'
+    });
+  } catch (e) { console.error('Erro ao auto-resolver Foguete', e); }
+}
 
 // Compara o snapshot novo com o anterior e dispara toast pra gol, cartão
 // vermelho e fim de jogo - alimentado pelo motor a cada 5min via API-Live.
@@ -1237,8 +1561,9 @@ function alertarEventosAoVivo(jogosNovos) {
       if (vermelhosAgora > vermelhosAntes) {
         mostrarToast(`🟥 Cartão vermelho em ${esc(j.mandante)} x ${esc(j.visitante)}${j.ultimoCartaoVermelho ? ' · ' + esc(j.ultimoCartaoVermelho) : ''}`, false);
       }
-      if (anterior.status === 'LIVE' && j.status === 'FT') {
+      if (anterior.status !== 'FT' && j.status === 'FT') {
         mostrarToast(`🏁 FIM DE JOGO: ${esc(j.mandante)} ${j.golsCasa}-${j.golsFora} ${esc(j.visitante)}`, true);
+        autoResolverOperacoesDoJogo(j);
       }
     }
     estadoAoVivoAnterior[j.id] = { golsCasa: j.golsCasa, golsFora: j.golsFora, cartaoVermelhoCasa: j.cartaoVermelhoCasa, cartaoVermelhoFora: j.cartaoVermelhoFora, status: j.status };
@@ -1422,28 +1747,36 @@ function getMatchTimerAndStatus(j, now) {
 
   const isOfficialLive = ['LIVE', 'HT', '1H', '2H', 'EM ANDAMENTO', 'AO VIVO'].includes(st);
 
-  if (isOfficialLive || (diffMinutes >= 0 && diffMinutes <= 115)) {
-    let minText = j.minutoAoVivo || "";
-    let tagTempo = "1T";
-    let isHT = st === 'HT' || (diffMinutes > 45 && diffMinutes <= 60);
+  // Intervalo do 2º tempo: 18 minutos (em vez dos 15 "de regulamento") pra dar folga
+  // a acréscimo do 1T ou atraso no reinício - sem essa folga, um jogo com HT mais
+  // longo virava "2T" cedo demais, com minuto errado.
+  const INTERVALO_HT = 18;
+  const FIM_JANELA_LIVE = 45 + INTERVALO_HT + 45 + 10; // 1T + intervalo + 2T + folga de acréscimo do 2T
 
-    if (!minText) {
-      if (diffMinutes <= 45) {
-        const min = diffMinutes === 0 ? 1 : diffMinutes;
-        minText = `1T ${min}'`;
-        tagTempo = "1T";
-      } else if (diffMinutes > 45 && diffMinutes <= 60) {
-        const htMin = diffMinutes - 45;
-        minText = `HT (${htMin}m)`;
-        tagTempo = "HT";
-      } else if (diffMinutes > 60 && diffMinutes <= 105) {
-        const min2 = 45 + (diffMinutes - 60);
-        minText = `2T ${min2}'`;
-        tagTempo = "2T";
-      } else {
-        minText = `2T 90+'`;
-        tagTempo = "2T";
-      }
+  if (isOfficialLive || (diffMinutes >= 0 && diffMinutes <= FIM_JANELA_LIVE)) {
+    // O minuto raspado (j.minutoAoVivo) trava quando a API ao vivo para de atualizar
+    // aquele jogo específico (ex.: fica preso em "9'" mesmo já perto do intervalo) -
+    // o relógio calculado a partir do horário de início não depende de nenhuma API
+    // externa, então ele é a ÚNICA fonte do minuto exibido (raw só decide status FT/NS).
+    let minText;
+    let tagTempo = "1T";
+    let isHT = st === 'HT' || (diffMinutes > 45 && diffMinutes <= 45 + INTERVALO_HT);
+
+    if (diffMinutes <= 45) {
+      const min = diffMinutes <= 0 ? 1 : diffMinutes;
+      minText = `1T ${min}'`;
+      tagTempo = "1T";
+    } else if (diffMinutes > 45 && diffMinutes <= 45 + INTERVALO_HT) {
+      const htMin = diffMinutes - 45;
+      minText = `HT (${htMin}m)`;
+      tagTempo = "HT";
+    } else if (diffMinutes > 45 + INTERVALO_HT && diffMinutes <= 45 + INTERVALO_HT + 45) {
+      const min2 = 45 + (diffMinutes - (45 + INTERVALO_HT));
+      minText = `2T ${min2}'`;
+      tagTempo = "2T";
+    } else {
+      minText = `2T 90+'`;
+      tagTempo = "2T";
     }
 
     const badgeColor = isHT ? 'text-amber-400' : 'text-red-500';
@@ -1529,7 +1862,43 @@ function toggleFixar(idJogo) {
   if (fixadosIds.includes(strId)) fixadosIds = fixadosIds.filter(f => f !== strId);
   else fixadosIds.push(strId);
   localStorage.setItem('cr7_fixados', JSON.stringify(fixadosIds));
-  filtrarJogos(); 
+  filtrarJogos();
+}
+
+// Apaga o jogo de vez do Firestore (doc id = String(match.id), gravado pelo motor.ts) -
+// some pra todo mundo que usa o app, não só localmente. Se o motor rodar de novo e o
+// jogo ainda estiver na fonte, ele volta (upsert usa o mesmo id) - risco aceito pelo pedido.
+async function excluirJogo(idJogo, nomeJogo) {
+  const ok = await confirmarAcao(
+    '🗑️ Excluir jogo',
+    `Apagar "${nomeJogo || idJogo}" e todos os dados dele do banco? Esta ação não pode ser desfeita.`,
+    'Excluir'
+  );
+  if (!ok) return;
+
+  try {
+    await db.collection('jogos_ao_vivo').doc(String(idJogo)).delete();
+    todosOsJogos = todosOsJogos.filter(j => String(j.id) !== String(idJogo));
+    filtrarJogos();
+    if (!document.getElementById('view-tips').classList.contains('hidden-view')) renderizarTips();
+    if (!document.getElementById('view-projetos').classList.contains('hidden-view')) renderizarAlavancagem();
+    mostrarToast('🗑️ Jogo excluído.', true);
+  } catch (e) {
+    mostrarToast(`❌ Erro ao excluir: ${e.message}`, false);
+  }
+}
+
+// Tips não são um doc no Firestore - são recalculadas a cada render, então "excluir"
+// só guarda a chave (jogo + método + regra, em slug pra não quebrar com aspas/acento
+// dentro do atributo onclick) numa lista local e filtra ela pra sempre.
+function chaveTip(sId, op) { return sId + '|' + slugMetodo(op.metodo) + '|' + slugMetodo(op.regra); }
+function excluirTip(sId, metodoSlug, regraSlug) {
+  const chave = sId + '|' + metodoSlug + '|' + regraSlug;
+  if (!tipsExcluidasIds.includes(chave)) {
+    tipsExcluidasIds.push(chave);
+    localStorage.setItem('cr7_tips_excluidas', JSON.stringify(tipsExcluidasIds));
+  }
+  renderizarTips();
 }
 
 function renderizarAgrupamento(jogos) {
@@ -1562,7 +1931,8 @@ function renderizarAgrupamento(jogos) {
       id: j.id, m: j.mandante, v: j.visitante, lc: j.logoCasa, lf: j.logoFora,
       json: pkt, status: j.status, gc: j.golsCasa, gf: j.golsFora,
       odds: { c: j.oddCasa, e: j.oddEmpate, f: j.oddFora },
-      pais: j.pais, competicao: j.competicao, hora: j.hora, dataJogo: j.dataJogo
+      pais: j.pais, competicao: j.competicao, hora: j.hora, dataJogo: j.dataJogo,
+      golsDetalhados: j.golsDetalhados || []
     };
 
     const autorGol = j.ultimoGol ? `<span class="absolute -bottom-4 bg-green-500 text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow-lg truncate max-w-[90px] text-center border border-green-400">⚽ ${j.ultimoGol}</span>` : '';
@@ -1590,7 +1960,7 @@ function renderizarAgrupamento(jogos) {
           <div class="flex flex-col items-center justify-center w-1/3 z-10 relative">
               ${info.isLive || info.isFT ? 
                 `<div class="bg-black/50 text-white font-mono font-black text-2xl px-4 py-1.5 rounded-2xl border border-white/10 shadow-inner">${j.golsCasa ?? 0} - ${j.golsFora ?? 0}</div>
-                 <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${info.isLive ? (j.minutoAoVivo || 'AO VIVO') : (j.hora || '00:00')}</span>
+                 <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${info.isLive ? info.statusLabel : (j.hora || '00:00')}</span>
                  ${((j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)) > 0 ? `<span class="text-[9px] font-bold text-red-400 mt-0.5">🟥 ${(j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)}</span>` : ''}`
               : `<span class="text-3xl font-black font-mono text-white drop-shadow-md tracking-tighter">${j.hora || '00:00'}</span>`
               }
@@ -1607,6 +1977,7 @@ function renderizarAgrupamento(jogos) {
 
       <div class="flex gap-2 mt-6 pt-4 border-t border-white/5">
         <button onclick="abrirModalBank('${sId}')" class="flex-1 py-3 rounded-2xl bg-[#2c2c2e] hover:bg-gray-700 text-blue-400 font-black text-[10px] uppercase tracking-wider shadow-sm transition-colors border border-white/5 flex items-center justify-center gap-2">📊 Raio-X Completo</button>
+        <button onclick="abrirModalGols('${sId}')" class="bg-amber-600/20 border border-amber-500/40 text-amber-400 px-4 py-3 rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center text-[14px]" title="Quem fez o gol">⚽</button>
         <button onclick="prepararTradeDirect('${esc(j.mandante)} x ${esc(j.visitante)}', '${esc(j.competicao)}')" class="bg-green-600/20 border border-green-500/40 text-green-400 px-6 py-3 rounded-2xl shadow-sm active:scale-95 transition-all flex items-center justify-center text-[14px]" title="Registrar no Trade">✅</button>
       </div>
     </div>`;
@@ -1675,6 +2046,45 @@ function abrirModalBank(sId) {
   document.getElementById('infoModal').classList.add('flex');
 }
 
+// Modal leve e independente (injeta/remove do body) pra não precisar de outro
+// shell estático - mostra a lista completa de gols (não só o último, como o toast
+// ao vivo mostra), com time, jogador, minuto e 1º/2º tempo de cada um.
+function abrirModalGols(sId) {
+  const data = window.matchDataBank[sId];
+  if (!data) return;
+  const gols = Array.isArray(data.golsDetalhados) ? data.golsDetalhados : [];
+
+  const listaHtml = gols.length
+    ? [...gols].sort((a, b) => (a.minuto ?? 0) - (b.minuto ?? 0)).map(g => `
+      <div class="flex items-center justify-between bg-[#121212] border border-white/5 rounded-xl p-3">
+        <div class="flex items-center gap-2">
+          <img src="${g.time === 'casa' ? data.lc : data.lf}" class="w-6 h-6 object-contain rounded-full bg-black/30">
+          <span class="text-[11px] font-bold text-white">${esc(g.jogador)}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[9px] font-bold uppercase text-gray-500">${g.tempo === '2T' ? '2º Tempo' : '1º Tempo'}</span>
+          <span class="text-[11px] font-mono font-black text-amber-400">${g.minuto !== null && g.minuto !== undefined ? g.minuto + "'" : '-'}</span>
+        </div>
+      </div>`).join('')
+    : `<div class="text-center text-gray-500 text-[11px] py-8">Nenhum gol registrado ainda (a API ao vivo só captura eventos enquanto o jogo está rolando).</div>`;
+
+  document.getElementById('modalGols')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'modalGols';
+  overlay.className = 'fixed inset-0 z-[220] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4';
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div class="bg-[#1c1c1e] w-full max-w-md max-h-[80vh] overflow-y-auto rounded-3xl border border-white/10 shadow-2xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-black text-white uppercase tracking-wide">⚽ Quem Fez o Gol</h3>
+        <button onclick="document.getElementById('modalGols').remove()" class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400">✕</button>
+      </div>
+      <div class="text-[10px] text-gray-500 mb-3 uppercase tracking-wide">${esc(data.m)} ${data.gc ?? 0}-${data.gf ?? 0} ${esc(data.v)}</div>
+      <div class="space-y-2">${listaHtml}</div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
 function trocarSubTabModal(tab) {
   modalSubTabAtual = tab;
   renderizarConteudoModal();
@@ -1683,6 +2093,7 @@ function trocarSubTabModal(tab) {
 function renderizarConteudoModal() {
   const data = window.activeModalData;
   if(!data) return;
+  accordionSeq = 0;
 
   const objJson = data.json?.principais_json || { confronto: [], tendencias: [], mercados: [] };
   const objRaiox = data.json?.raiox_json || {}; 
@@ -1698,10 +2109,10 @@ function renderizarConteudoModal() {
   const navAbas = `
   <div class="flex gap-2 overflow-x-auto no-scrollbar pb-4 mb-2">
     <button onclick="trocarSubTabModal('geral')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'geral' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">📊 Top Stats</button>
+    <button onclick="trocarSubTabModal('destaques')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'destaques' ? 'bg-amber-500 text-black shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⭐ Destaques</button>
     <button onclick="trocarSubTabModal('h2h')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'h2h' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⚔️ H2H</button>
     <button onclick="trocarSubTabModal('desempenho')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'desempenho' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⏱️ Desempenho</button>
     <button onclick="trocarSubTabModal('gols')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'gols' ? 'bg-blue-600 text-white shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⚽ Gols</button>
-    <button onclick="trocarSubTabModal('destaques')" class="px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 transition-all ${modalSubTabAtual === 'destaques' ? 'bg-amber-500 text-black shadow-md' : 'bg-[#1c1c1e] text-gray-400 border border-white/5'}">⭐ Destaques</button>
   </div>`;
 
   let corpo = '';
@@ -1768,7 +2179,10 @@ function renderizarConteudoModal() {
         else if (s.includes('quando sofreu')) cardAtual = 'sofreu';
 
         if (s.includes('aproveitamento')) pAproveitamento.push(x);
-        else if (s.includes('por tempo')) (x.periodo === '2T' ? pTempoSegundo : pTempoPrimeiro).push(x);
+        // "por tempo" sozinho também bate com "Gols por Tempo" (outro card, mesma
+        // classe de título no site) - sem o prefixo "desempenho" aqui, linhas de Over/
+        // Under Gols vazavam pra dentro do card Desempenho por Tempo.
+        else if (s.includes('desempenho por tempo')) (ehSegundoTempo(x.subRotulo) ? pTempoSegundo : pTempoPrimeiro).push(x);
         else if (s.includes('quando marcou')) pMarcouAcoes.push(x);
         else if (s.includes('quando sofreu')) pSofreuAcoes.push(x);
         else if (s.includes('resultado aos 90')) (cardAtual === 'sofreu' ? pSofreuResult : pMarcouResult).push(x);
@@ -1812,11 +2226,11 @@ function renderizarConteudoModal() {
     });
 
     corpo = `
-        ${renderCardGrid('📈 Aproveitamento', data.lc, data.lf, pAproveitamento)}
-        ${renderCardToggle('Desempenho por Tempo', '⏱️', data.lc, data.lf, 'tempo-desemp-view', 'Primeiro', pTempoPrimeiro, 'Segundo', pTempoSegundo)}
         ${renderCardGrid('🏁 Primeiro Gol', data.lc, data.lf, pPrimeiroGol)}
         ${renderCardComSeparador('Quando Marcou Primeiro', '🟢', data.lc, data.lf, pMarcouAcoes, pMarcouResult)}
         ${renderCardComSeparador('Quando Sofreu Primeiro', '🔴', data.lc, data.lf, pSofreuAcoes, pSofreuResult)}
+        ${renderCardGrid('📈 Aproveitamento', data.lc, data.lf, pAproveitamento)}
+        ${renderCardToggle('Desempenho por Tempo', '⏱️', data.lc, data.lf, 'tempo-desemp-view', 'Primeiro', pTempoPrimeiro, 'Segundo', pTempoSegundo)}
     `;
   }
   else if (modalSubTabAtual === 'gols') {
@@ -1836,9 +2250,11 @@ function renderizarConteudoModal() {
       // param de se misturar num card só.
       dNormal.forEach(x => {
         const s = (x.secao || '').toLowerCase();
-        if (s.includes('total de gols')) (x.variante === 'UNDER' ? itemsUnders : itemsOvers).push(x);
-        else if (s.includes('por tempo')) (x.periodo === '2T' ? itemsTempoSegundo : itemsTempoPrimeiro).push(x);
-        else if (s.includes('marcados e sofridos')) (x.variante === 'SOFRIDOS' ? itemsSofridos : itemsMarcados).push(x);
+        if (s.includes('total de gols')) ((x.subRotulo || '').toLowerCase().includes('under') ? itemsUnders : itemsOvers).push(x);
+        // Mesmo cuidado do lado do Desempenho: "por tempo" sozinho também bate com
+        // "Desempenho por Tempo" (mesma classe de título no site).
+        else if (s.includes('gols por tempo')) (ehSegundoTempo(x.subRotulo) ? itemsTempoSegundo : itemsTempoPrimeiro).push(x);
+        else if (s.includes('marcados e sofridos')) ((x.subRotulo || '').toLowerCase().includes('sofridos') ? itemsSofridos : itemsMarcados).push(x);
         else if (s.includes('finaliza')) itemsFinalizacoes.push(x);
         else if (s.includes('gols')) itemsGolsBase.push(x);
       });
@@ -1868,16 +2284,21 @@ function renderizarConteudoModal() {
     <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 mb-4 overflow-hidden shadow-lg">
         <div class="bg-[#2c2c2e] p-3 flex justify-between items-center border-b border-white/5">
             <h4 class="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5"><span class="text-sm">🎯</span> Total de Gols</h4>
-            <div class="flex bg-[#121212] rounded-lg p-1 border border-white/5">
-                <button onclick="window.toggleUiTab(this, 'gols-view', 'gols-over')" class="px-3 py-1.5 text-[9px] rounded-md bg-[#3a3a3c] text-white font-bold shadow-sm transition-all uppercase tracking-wider">Over Gols</button>
-                <button onclick="window.toggleUiTab(this, 'gols-view', 'gols-under')" class="px-3 py-1.5 text-[9px] rounded-md text-gray-500 hover:text-gray-300 font-bold transition-all uppercase tracking-wider">Under Gols</button>
+            <div class="flex items-center gap-2">
+                <div class="flex bg-[#121212] rounded-lg p-1 border border-white/5">
+                    <button onclick="window.toggleUiTab(this, 'gols-view', 'gols-over')" class="px-3 py-1.5 text-[9px] rounded-md bg-[#3a3a3c] text-white font-bold shadow-sm transition-all uppercase tracking-wider">Over Gols</button>
+                    <button onclick="window.toggleUiTab(this, 'gols-view', 'gols-under')" class="px-3 py-1.5 text-[9px] rounded-md text-gray-500 hover:text-gray-300 font-bold transition-all uppercase tracking-wider">Under Gols</button>
+                </div>
+                <span class="text-gray-500 text-xs cursor-pointer px-1" onclick="document.getElementById('gols-total-acc').classList.toggle('hidden')">▾</span>
             </div>
         </div>
-        <div id="gols-over" class="gols-view">
-            ${renderCardGrid3Col('', data.lc, data.lf, itemsOvers)}
-        </div>
-        <div id="gols-under" class="gols-view hidden">
-            ${renderCardGrid3Col('', data.lc, data.lf, itemsUnders)}
+        <div id="gols-total-acc" class="hidden">
+            <div id="gols-over" class="gols-view">
+                ${renderCardGrid3Col('', data.lc, data.lf, itemsOvers)}
+            </div>
+            <div id="gols-under" class="gols-view hidden">
+                ${renderCardGrid3Col('', data.lc, data.lf, itemsUnders)}
+            </div>
         </div>
     </div>
 
@@ -1885,7 +2306,7 @@ function renderizarConteudoModal() {
 
     ${renderCardToggle('Gols Marcados e Sofridos', '🥅', data.lc, data.lf, 'marcsof-view', 'Marcados', itemsMarcados, 'Sofridos', itemsSofridos)}
 
-    ${renderRelogio('Relógio de Gols', rGols)}
+    ${renderRelogio('Relógio de Gols', data.lc, data.lf, rGols)}
 
     ${renderCardGrid('🎯 Finalizações', data.lc, data.lf, itemsFinalizacoes)}
     `;
@@ -1894,16 +2315,26 @@ function renderizarConteudoModal() {
     const mercadosRelevantes = ['Resultado', '0.5 Gols HT', 'Over 2.5 Gols'];
     const mercadosFiltrados = objJson.mercados.filter(m => mercadosRelevantes.some(rm => m.nome.includes(rm)));
     const confrontosFiltrados = objJson.confronto.filter(c => !isCardOrCornerRule(c.metrica));
-    const tendenciasFiltradas = objJson.tendencias.filter(t => !isCardOrCornerRule(t.regra));
+
+    // O site real repete o mesmo fato (ex. "Polokwane City - Sem derrota: 4") no
+    // widget de Confronto Direto E no de Tendências - sem deduplicar aqui a aba
+    // Destaques mostra a mesma linha duas vezes.
+    const normDestaque = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const chavesConfronto = new Set(confrontosFiltrados.map(c => normDestaque(c.metrica.replace(data.m + ' - ', '').replace(data.v + ' - ', '')) + '|' + normDestaque(c.valor)));
+    const tendenciasFiltradas = objJson.tendencias.filter(t => !isCardOrCornerRule(t.regra)).filter(t => {
+      const chave = normDestaque(t.regra.replace(data.m + ' - ', '').replace(data.v + ' - ', '')) + '|' + normDestaque(t.rate);
+      return !chavesConfronto.has(chave);
+    });
 
     corpo = `
     <div class="space-y-4">
       ${confrontosFiltrados.length ? `
       <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 overflow-hidden shadow-lg">
-        <div class="p-3 bg-[#2c2c2e] border-b border-white/5 flex items-center gap-2">
-          <span class="text-sm">⚔️</span> <h4 class="text-[10px] font-black text-white uppercase tracking-widest">Confronto Direto</h4>
+        <div class="p-3 bg-[#2c2c2e] border-b border-white/5 flex items-center justify-between cursor-pointer" onclick="document.getElementById('destaques-confronto-acc').classList.toggle('hidden')">
+          <div class="flex items-center gap-2"><span class="text-sm">⚔️</span> <h4 class="text-[10px] font-black text-white uppercase tracking-widest">Confronto Direto</h4></div>
+          <span class="text-gray-500 text-xs">▾</span>
         </div>
-        <div class="p-3 space-y-1.5">
+        <div id="destaques-confronto-acc" class="p-3 space-y-1.5">
           ${confrontosFiltrados.map(c => `
             <div class="flex justify-between items-center bg-[#121212] p-3 rounded-xl text-xs shadow-sm border border-white/5">
               <div class="flex items-center text-gray-300 font-bold">${getTrendIcon(c.metrica, data.m, data.v, data.lc, data.lf)} <span class="ml-1.5">${c.metrica.replace(data.m + ' - ', '').replace(data.v + ' - ', '').replace('-', '').trim()}</span></div>
@@ -1914,10 +2345,14 @@ function renderizarConteudoModal() {
 
       ${tendenciasFiltradas.length ? `
       <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 overflow-hidden shadow-lg">
-        <div class="p-3 bg-[#2c2c2e] border-b border-white/5 flex justify-between items-center">
-           <div class="flex items-center gap-2"><span class="text-sm">📈</span> <h4 class="text-[10px] font-black text-white uppercase tracking-widest">Tendências Recentes</h4></div>
+        <div class="p-3 bg-[#2c2c2e] border-b border-white/5 flex justify-between items-center cursor-pointer" onclick="document.getElementById('destaques-tendencias-acc').classList.toggle('hidden')">
+           <div class="flex items-center gap-2"><span class="text-sm">📈</span> <h4 class="text-[10px] font-black text-white uppercase tracking-widest">Tendências</h4></div>
+           <div class="flex items-center gap-2">
+             <span class="text-[8px] font-bold text-gray-500 uppercase tracking-widest bg-[#121212] px-2 py-1 rounded-lg border border-white/5">Recorte recente</span>
+             <span class="text-gray-500 text-xs">▾</span>
+           </div>
         </div>
-        <div class="p-3 space-y-1.5">
+        <div id="destaques-tendencias-acc" class="p-3 space-y-1.5">
           ${tendenciasFiltradas.map(t => `
             <div class="flex justify-between items-center bg-[#121212] p-3 rounded-xl text-xs shadow-sm border border-white/5">
               <div class="flex items-center text-gray-300 font-medium">${getTrendIcon(t.regra, data.m, data.v, data.lc, data.lf)} <span class="ml-1.5">${t.regra.replace(data.m + ' - ', '').replace(data.v + ' - ', '').replace('-', '').trim()}</span></div>
@@ -1928,10 +2363,11 @@ function renderizarConteudoModal() {
 
       ${mercadosFiltrados.length ? `
       <div class="bg-[#1c1c1e] rounded-3xl border border-white/5 overflow-hidden shadow-lg">
-        <div class="p-3 bg-[#2c2c2e] border-b border-white/5 flex items-center gap-2">
-          <span class="text-sm">🎯</span> <h4 class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Principais Mercados</h4>
+        <div class="p-3 bg-[#2c2c2e] border-b border-white/5 flex items-center justify-between cursor-pointer" onclick="document.getElementById('destaques-mercados-acc').classList.toggle('hidden')">
+          <div class="flex items-center gap-2"><span class="text-sm">🎯</span> <h4 class="text-[10px] font-black text-blue-400 uppercase tracking-widest">Principais Mercados</h4></div>
+          <span class="text-gray-500 text-xs">▾</span>
         </div>
-        <div class="p-3 space-y-1.5">
+        <div id="destaques-mercados-acc" class="p-3 space-y-1.5">
           ${mercadosFiltrados.map(m => `
             <div class="flex justify-between items-center bg-[#121212] p-3 rounded-xl text-xs shadow-sm border border-white/5">
               <span class="text-gray-300 font-bold flex-1">${m.nome}</span>
@@ -1985,7 +2421,7 @@ Traga estritamente em português em formato simples:
 3) Grau de Risco: (Baixo, Médio ou Alto)`;
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const url = `${getGeminiUrl()}?key=${encodeURIComponent(apiKey)}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2113,9 +2549,11 @@ function renderizarAlavancagem() {
 
   const hoje = dataSelecionadaISO || new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })).toISOString().split('T')[0];
 
+  // Antes excluía jogos FT da lista - o que impedia de registrar Green/Red depois
+  // que o jogo terminava (o card simplesmente sumia). Mantém o jogo do dia visível
+  // até virar amanhã, só muda o que aparece nele conforme o status.
   const candidatos = todosOsJogos.filter(j => {
     if (j.dataJogo !== hoje) return false;
-    if (j.status === 'FT') return false;
     if (isLigaBloqueada(j.pais, j.competicao)) return false;
     const oc = parseFloat(j.oddCasa), of = parseFloat(j.oddFora);
     return (!isNaN(oc) && oc > 1 && oc <= 1.5) || (!isNaN(of) && of > 1 && of <= 1.5);
@@ -2126,6 +2564,8 @@ function renderizarAlavancagem() {
     return;
   }
 
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+
   container.innerHTML = candidatos.map(j => {
     const sId = cleanString(j.id || j.mandante + j.visitante);
     window.alavancagemBank[sId] = j;
@@ -2133,15 +2573,62 @@ function renderizarAlavancagem() {
     const favCasa = !isNaN(oc) && oc > 1 && oc <= 1.5;
     const nomeFav = favCasa ? j.mandante : j.visitante;
     const oddFav = favCasa ? j.oddCasa : j.oddFora;
+    const info = getMatchTimerAndStatus(j, now);
+
+    // Mesmo critério do auto-resolver (autoResolverOperacoesDoJogo, disparado quando
+    // o jogo vira FT) - aqui só EXIBE o resultado, a gravação no Livro já acontece
+    // sozinha, sem precisar de botão manual de Green/Red.
+    let resultadoBadge = '';
+    if (info.isFT) {
+      const favorito = favoritoPelaOdd(j);
+      if (favorito) {
+        const gc = parseInt(j.golsCasa) || 0, gf = parseInt(j.golsFora) || 0;
+        const favoritoVenceu = gc !== gf && (favorito === 'casa' ? gc > gf : gf > gc);
+        resultadoBadge = favoritoVenceu
+          ? `<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase shadow-sm">🟢 GREEN (${gc}-${gf})</span>`
+          : `<span class="bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase shadow-sm">🔴 RED (${gc}-${gf})</span>`;
+      }
+    }
+
     return `
-    <div class="bg-[#121212] border border-white/5 rounded-2xl p-3">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-[10px] font-bold text-white">${esc(j.mandante)} <span class="text-gray-500">x</span> ${esc(j.visitante)}</span>
-        <span class="text-[9px] font-mono text-blue-400">${esc(j.hora || '')}</span>
+    <div class="bg-[#1c1c1e] p-4 rounded-3xl shadow-lg border border-white/5 relative mb-4">
+      <div class="absolute top-4 left-4 z-10">
+        <button onclick="excluirJogo('${j.id}', '${esc(j.mandante)} x ${esc(j.visitante)}')" class="text-[14px] text-gray-600 hover:text-red-400 transition-all hover:scale-110" title="Excluir jogo">🗑️</button>
       </div>
-      <div class="text-[9px] text-gray-500 mb-2">${esc(j.competicao)} • Favorito: <b class="text-white">${esc(nomeFav)}</b> (Odd ${oddFav})</div>
-      <button onclick="analisarJogoComIA('${sId}')" class="w-full py-2 rounded-xl bg-purple-600/20 border border-purple-500/40 text-purple-400 font-bold text-[9px] uppercase tracking-wider">🤖 Analisar com Gemini (busca notícias)</button>
+      <div class="absolute top-4 right-4 z-10">
+        ${info.isLive ? info.statusBadge : ''}
+      </div>
+
+      <div class="flex items-center justify-between mt-8 px-2 relative">
+        <div class="flex flex-col items-center gap-2 w-1/3">
+          <img src="${j.logoCasa}" class="w-12 h-12 object-contain drop-shadow-lg">
+          <span class="text-[11px] font-bold text-center text-white leading-tight h-8 flex items-center justify-center">${esc(nomeTimeSeguro(j.mandante, j.competicao))}</span>
+          <span class="px-3 py-1 bg-[#121212] text-white rounded-xl text-[11px] font-mono font-black border border-white/5 shadow-sm mt-1">${j.oddCasa || '-'}</span>
+        </div>
+
+        <div class="flex flex-col items-center justify-center w-1/3 z-10 relative">
+          ${info.isLive || info.isFT
+            ? `<div class="bg-black/50 text-white font-mono font-black text-xl px-3 py-1 rounded-2xl border border-white/10 shadow-inner">${j.golsCasa ?? 0} - ${j.golsFora ?? 0}</div>
+               <span class="text-[9px] font-mono font-bold text-gray-400 mt-1">${info.isFT ? 'FIM' : info.statusLabel}</span>`
+            : `<span class="text-2xl font-black font-mono text-white drop-shadow-md tracking-tighter">${j.hora || '00:00'}</span>`
+          }
+        </div>
+
+        <div class="flex flex-col items-center gap-2 w-1/3">
+          <img src="${j.logoFora}" class="w-12 h-12 object-contain drop-shadow-lg">
+          <span class="text-[11px] font-bold text-center text-white leading-tight h-8 flex items-center justify-center">${esc(nomeTimeSeguro(j.visitante, j.competicao))}</span>
+          <span class="px-3 py-1 bg-[#121212] text-white rounded-xl text-[11px] font-mono font-black border border-white/5 shadow-sm mt-1">${j.oddFora || '-'}</span>
+        </div>
+      </div>
+
+      <div class="text-[9px] text-gray-500 text-center mt-3">${esc(j.competicao)} • Favorito: <b class="text-white">${esc(nomeFav)}</b> (Odd ${oddFav})</div>
+
+      ${resultadoBadge ? `<div class="flex justify-center mt-2">${resultadoBadge}</div>` : ''}
+
+      <button onclick="analisarJogoComIA('${sId}')" class="w-full py-2 rounded-xl bg-purple-600/20 border border-purple-500/40 text-purple-400 font-bold text-[9px] uppercase tracking-wider mt-3">🤖 Analisar com Gemini (busca notícias)</button>
       <div id="ia-box-${sId}" class="mt-2"></div>
+
+      <button onclick="prepararTradeDirect('${esc(j.mandante)} x ${esc(j.visitante)}', '${esc(j.competicao)}')" class="w-full py-2.5 rounded-xl bg-green-600/20 border border-green-500/40 text-green-400 font-bold text-[9px] uppercase tracking-wider mt-2">✅ Registrar Entrada no Trade</button>
     </div>`;
   }).join('');
 }
@@ -2164,9 +2651,12 @@ function renderBadgeResultadoOp(op, j) {
     : `<span class="bg-red-500/20 text-red-400 border border-red-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase shadow-sm">🔴 RED (${j.golsCasa}-${j.golsFora})</span>`;
 }
 
-function renderLinhaOportunidade(op, j) {
+function renderLinhaOportunidade(op, j, sId) {
   const pillStyle = getMethodPillStyle(op.metodo);
   const tempoTag = op.tempo === '2T' ? ' • 2º Tempo' : (op.tempo === '1T' ? ' • 1º Tempo' : '');
+  // Botão de excluir só aparece quando quem chamou passa sId (aba Tips) - o Top
+  // Stats do Raio-X reaproveita essa mesma função sem sId e não deve ganhar o botão.
+  const btnExcluirTip = sId ? `<button onclick="excluirTip('${sId}', '${slugMetodo(op.metodo)}', '${slugMetodo(op.regra)}')" class="text-gray-600 hover:text-red-400 transition-all text-[11px]" title="Excluir esta tip">🗑️</button>` : '';
 
   // Quando o valor vem de casa+fora, mostra os dois números junto do escudo de
   // cada time - deixa claro de qual time é cada percentual/fração.
@@ -2183,11 +2673,70 @@ function renderLinhaOportunidade(op, j) {
         <div class="flex items-center gap-2">
           <span class="text-amber-400 font-mono font-black text-[11px]">${op.percent}%</span>
           ${renderBadgeResultadoOp(op, j)}
+          ${btnExcluirTip}
         </div>
       </div>
       <div class="text-[10px] text-gray-300 leading-snug">${esc(op.regra)} <span class="text-gray-500 inline-flex items-center gap-1">(${detalhe})</span></div>
-      <div class="text-[9px] text-gray-500 mt-1 uppercase tracking-wide">📌 Fonte: ${esc(op.fonte.origem)}${tempoTag}</div>
+      <div class="text-[9px] text-gray-500 mt-1 uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
+        <span>📌 Fonte: ${esc(op.fonte.origem)}${tempoTag}</span>
+        ${op.confirmadoPorFontes ? `<span class="text-emerald-400 font-bold">✅ Confirmado por ${op.confirmadoPorFontes} fontes</span>` : ''}
+      </div>
     </div>`;
+}
+
+// Percorre TODOS os jogos já finalizados (não só os do dia selecionado) e grava
+// no Livro cada tip validável (validarGreenRed já existe e resolve contra o
+// placar real - aqui só persiste o que ele já calcula, sem inventar lógica nova).
+// Doc id determinístico (tips_<sId>_<método>) faz o re-clique corrigir em vez de duplicar.
+async function sincronizarTipsNoLivro() {
+  const btn = document.getElementById('btnSyncTipsLivro');
+  const textoOriginal = btn ? btn.innerText : '';
+  if (btn) { btn.disabled = true; btn.innerText = 'SINCRONIZANDO...'; }
+  try {
+    const writes = [];
+    todosOsJogos.forEach(j => {
+      if (!jogoRealmenteFinalizado(j)) return;
+      if (isLigaBloqueada(j.pais, j.competicao)) return;
+      const ops = extrairOportunidadesJogo(j).filter(o => o.percent >= 65);
+      const sId = cleanString(j.id || j.mandante + j.visitante);
+      ops.forEach(op => {
+        const resultado = validarGreenRed(op, j);
+        if (resultado === null) return; // mercado ainda não validável (ex.: falta placar do HT)
+        writes.push({
+          id: 'tips_' + sId + '_' + slugMetodo(op.metodo),
+          data: {
+            data: j.dataJogo || '',
+            liga: `${j.pais || ''} - ${j.competicao || ''}`,
+            jogo: `${j.mandante} x ${j.visitante}`,
+            mercado: op.regra || op.metodo,
+            tipo: 'SISTEMA',
+            metodo: op.metodo,
+            status: resultado ? 'GREEN' : 'RED',
+            stake: 0,
+            pl: resultado ? 25.00 : -25.00,
+            origem: 'tips',
+            // Aba Tips tem 2 faixas de confiança (Padrões 65-80% / Grandes Chances ≥80%)
+            // - sem gravar qual delas gerou a tip, o Livro não tem como diferenciar.
+            faixa: op.percent >= 80 ? 'Grandes Chances' : 'Padrões',
+            percent: op.percent
+          }
+        });
+      });
+    });
+
+    // Firestore aceita no máximo 500 operações por batch.
+    for (let i = 0; i < writes.length; i += 450) {
+      const batch = db.batch();
+      writes.slice(i, i + 450).forEach(w => batch.set(db.collection('diario_operacoes').doc(w.id), w.data));
+      await batch.commit();
+    }
+
+    mostrarToast(`✅ ${writes.length} tip(s) sincronizada(s) ao Livro.`, true);
+  } catch (e) {
+    mostrarToast(`❌ Erro ao sincronizar: ${e.message}`, false);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerText = textoOriginal; }
+  }
 }
 
 function renderizarTips() {
@@ -2196,7 +2745,11 @@ function renderizarTips() {
 
   let candidatos = todosOsJogos
     .filter(j => (!dataSelecionadaISO || j.dataJogo === dataSelecionadaISO) && !isLigaBloqueada(j.pais, j.competicao))
-    .map(j => ({ j, ops: filtrarOportunidadesPorAba(extrairOportunidadesJogo(j)) }))
+    .map(j => {
+      const sId = cleanString(j.id || j.mandante + j.visitante);
+      const ops = filtrarOportunidadesPorAba(extrairOportunidadesJogo(j)).filter(op => !tipsExcluidasIds.includes(chaveTip(sId, op)));
+      return { j, ops };
+    })
     .filter(x => x.ops.length > 0);
 
   const term = document.getElementById('searchTips')?.value.toLowerCase().trim() || '';
@@ -2288,7 +2841,7 @@ function renderizarTips() {
             <div class="flex flex-col items-center justify-center w-1/3 z-10 relative">
                 ${info.isLive || info.isFT ?
                   `<div class="bg-black/50 text-white font-mono font-black text-2xl px-4 py-1.5 rounded-2xl border border-white/10 shadow-inner">${j.golsCasa ?? 0} - ${j.golsFora ?? 0}</div>
-                   <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${info.isLive ? (j.minutoAoVivo || 'AO VIVO') : (j.hora || '00:00')}</span>
+                   <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${info.isLive ? info.statusLabel : (j.hora || '00:00')}</span>
                    ${((j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)) > 0 ? `<span class="text-[9px] font-bold text-red-400 mt-0.5">🟥 ${(j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)}</span>` : ''}`
                 : `<span class="text-3xl font-black font-mono text-white drop-shadow-md tracking-tighter">${j.hora || '00:00'}</span>`
                 }
@@ -2304,7 +2857,7 @@ function renderizarTips() {
 
         <div class="mt-4">
           <b class="text-[10px] block mb-2 text-amber-400 uppercase tracking-widest">💡 Oportunidades Identificadas (${ops.length}):</b>
-          ${ops.map(op => renderLinhaOportunidade(op, j)).join('')}
+          ${ops.map(op => renderLinhaOportunidade(op, j, sId)).join('')}
         </div>
 
         <div class="flex gap-2 mt-2 pt-4 border-t border-white/5">
@@ -2352,7 +2905,8 @@ function registrarTrade(e) {
     oddEntrada: parseFloat(document.getElementById('tradeOddEntrada').value),
     stake: parseFloat(document.getElementById('tradeStake').value),
     status: document.getElementById('tradeStatus').value,
-    pl: document.getElementById('tradeStatus').value === 'GREEN' ? 25.00 : -25.00
+    pl: document.getElementById('tradeStatus').value === 'GREEN' ? 25.00 : -25.00,
+    origem: 'manual'
   };
 
   db.collection('diario_operacoes').add(novo).then(() => {
@@ -2363,12 +2917,110 @@ function registrarTrade(e) {
   });
 }
 
+// Tips e Foguete gravam operações automáticas/simuladas na mesma coleção
+// diario_operacoes (pra reaproveitar toda a infra de métricas) - mas elas NUNCA
+// podem entrar na banca/lucro real do usuário, só as operações manuais entram.
+function ehOperacaoManual(t) { return !t.origem || t.origem === 'manual'; }
+
+// Agrega green/red/win rate geral e por método pra qualquer lista de operações -
+// usado pelo Resumo (manual), e pelas novas abas Tips e Foguete do Livro.
+function calcularMetricasOperacoes(ops) {
+  const porMetodoMap = {};
+  let greens = 0, reds = 0, pl = 0;
+  (ops || []).forEach(o => {
+    const isGreen = o.status === 'GREEN';
+    const isRed = o.status === 'RED';
+    if (isGreen) greens++;
+    if (isRed) reds++;
+    pl += (o.pl || 0);
+    const metodo = o.metodo || 'Outros';
+    if (!porMetodoMap[metodo]) porMetodoMap[metodo] = { metodo, greens: 0, reds: 0 };
+    if (isGreen) porMetodoMap[metodo].greens++;
+    if (isRed) porMetodoMap[metodo].reds++;
+  });
+  const total = greens + reds;
+  const winRate = total > 0 ? Math.round((greens / total) * 100) : 0;
+  const porMetodo = Object.values(porMetodoMap).map(m => {
+    const t = m.greens + m.reds;
+    return { ...m, total: t, winRate: t > 0 ? Math.round((m.greens / t) * 100) : 0 };
+  }).sort((a, b) => b.total - a.total);
+  return { greens, reds, total, winRate, pl, porMetodo };
+}
+
+function renderListaMetodos(porMetodo, vazioMsg) {
+  if (!porMetodo.length) return `<div class="text-center text-gray-500 text-[10px] py-4">${vazioMsg}</div>`;
+  return porMetodo.map(m => `
+    <div class="flex items-center justify-between bg-gray-50 dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-3 rounded-2xl">
+      <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300">${esc(m.metodo)}</span>
+      <div class="flex items-center gap-3">
+        <span class="text-[10px] font-mono text-green-500 font-bold">🟢 ${m.greens}</span>
+        <span class="text-[10px] font-mono text-red-500 font-bold">🔴 ${m.reds}</span>
+        <span class="text-[10px] font-mono font-black ${m.winRate >= 50 ? 'text-blue-500' : 'text-gray-400'}">${m.winRate}%</span>
+      </div>
+    </div>`).join('');
+}
+
+// Preenche as tiles (greens/reds/winrate/pl) + a lista por método de uma origem
+// (tips/foguete) - espera ids "${prefixo}-greens", "${prefixo}-reds",
+// "${prefixo}-winrate", "${prefixo}-pl" e "${prefixo}-metodos" no DOM.
+function renderPainelOperacoes(ops, prefixo, vazioMsg) {
+  const m = calcularMetricasOperacoes(ops);
+  const set = (suf, val) => { const el = document.getElementById(prefixo + suf); if (el) el.innerText = val; };
+  set('-greens', m.greens);
+  set('-reds', m.reds);
+  set('-winrate', `${m.winRate}%`);
+  set('-pl', `R$ ${m.pl.toFixed(2)}`);
+  const elM = document.getElementById(prefixo + '-metodos');
+  if (elM) elM.innerHTML = renderListaMetodos(m.porMetodo, vazioMsg);
+  return m;
+}
+
+function renderUltimasEntradas() {
+  const el = document.getElementById('listaUltimasEntradasContainer');
+  if (!el) return;
+  const ultimas = [...diarioOperacoes].sort((a, b) => String(b.data || '').localeCompare(String(a.data || ''))).slice(0, 30);
+  if (!ultimas.length) {
+    el.innerHTML = '<div class="text-center text-gray-500 text-[10px] py-6">Nenhuma operação registrada ainda.</div>';
+    return;
+  }
+  el.innerHTML = ultimas.map(t => {
+    const cor = t.status === 'GREEN' ? 'text-green-500' : t.status === 'RED' ? 'text-red-500' : 'text-gray-400';
+    const origemTag = t.origem && t.origem !== 'manual' ? `<span class="text-[8px] uppercase font-black text-gray-500 bg-gray-100 dark:bg-black/30 px-1.5 py-0.5 rounded ml-1">${esc(t.origem)}</span>` : '';
+    const faixaTag = t.faixa ? `<span class="text-[8px] uppercase font-black ${t.faixa === 'Grandes Chances' ? 'text-amber-500' : 'text-blue-500'} bg-gray-100 dark:bg-black/30 px-1.5 py-0.5 rounded ml-1">${esc(t.faixa)}${typeof t.percent === 'number' ? ' ' + t.percent + '%' : ''}</span>` : '';
+    return `
+    <div class="flex items-center justify-between p-2.5 border-b border-black/5 dark:border-white/5 last:border-0">
+      <div class="flex flex-col min-w-0">
+        <span class="text-[10px] font-bold text-gray-700 dark:text-gray-300 truncate">${esc(t.jogo || t.liga || '-')} ${origemTag}${faixaTag}</span>
+        <span class="text-[9px] text-gray-500">${esc(t.metodo || '')} · ${esc(t.data || '')}</span>
+      </div>
+      <span class="text-[10px] font-mono font-black ${cor} shrink-0 pl-2">${esc(t.status || '-')} ${typeof t.pl === 'number' ? '(R$ ' + t.pl.toFixed(2) + ')' : ''}</span>
+    </div>`;
+  }).join('');
+}
+
+// A UI já chamava switchGestaoSubTab() nos botões Resumo/Visão/Histórico, mas a
+// função nunca tinha sido implementada (clique não fazia nada). Implementada
+// agora e estendida com as novas sub-abas Tips e Foguete.
+function switchGestaoSubTab(tab) {
+  ['pl', 'estudo', 'ultimas', 'tips', 'foguete'].forEach(t => {
+    const painel = document.getElementById('gestao-sub-' + t);
+    if (painel) painel.classList.toggle('hidden', t !== tab);
+    const btn = document.getElementById('btn-gestao-' + t);
+    if (!btn) return;
+    btn.className = t === tab
+      ? 'px-4 py-2 rounded-full text-xs font-bold bg-blue-600 text-white shrink-0 shadow-sm'
+      : 'px-4 py-2 rounded-full text-xs font-bold bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-white/10 shrink-0';
+  });
+  if (tab === 'ultimas') renderUltimasEntradas();
+}
+
 function carregarFinanceiro() {
+  const manuais = diarioOperacoes.filter(ehOperacaoManual);
   let totalPL = 0;
   let greens = 0;
-  let totalOps = diarioOperacoes.length;
+  let totalOps = manuais.length;
 
-  diarioOperacoes.forEach(t => {
+  manuais.forEach(t => {
     totalPL += (t.pl || 0);
     if (t.status === 'GREEN' || t.pl > 0) greens++;
   });
@@ -2385,6 +3037,13 @@ function carregarFinanceiro() {
 
   const wrEl = document.getElementById('dashWinRate');
   if (wrEl) wrEl.innerText = `${winRate}%`;
+
+  const metricasManuais = calcularMetricasOperacoes(manuais);
+  const listaEl = document.getElementById('listaMetodosPL');
+  if (listaEl) listaEl.innerHTML = renderListaMetodos(metricasManuais.porMetodo, 'Nenhuma operação manual registrada ainda.');
+
+  renderPainelOperacoes(diarioOperacoes.filter(t => t.origem === 'tips'), 'tips-livro', 'Nenhuma Tip sincronizada ainda. Use "Sincronizar ao Livro" na aba Tips.');
+  renderPainelOperacoes(diarioOperacoes.filter(t => t.origem === 'foguete'), 'foguete-livro', 'Nenhuma jogada do Foguete registrada ainda.');
 
   renderCalendar();
 }
