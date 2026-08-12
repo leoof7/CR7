@@ -469,7 +469,13 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
               status = "HT";
             }
 
-            const timeEl = linkEl.querySelector('.match-time, [class*="time"]');
+            // ".match-kickoff-time" é o horário AGENDADO do jogo (visto no debug de
+            // partidas não iniciadas) - fica primeiro na busca porque, ao vivo/
+            // finalizado, o site troca o conteúdo do elemento genérico de "time"
+            // pelo minuto corrido ("45'") ou o placar, não pelo horário de início.
+            // O seletor genérico ".match-time, [class*=\"time\"]" continua como
+            // fallback pra não regredir se essa classe específica não existir.
+            const timeEl = linkEl.querySelector('.match-kickoff-time, .match-time, [class*="time"]');
             let hora = timeEl ? (timeEl.innerText || "").trim() : "";
             if (!hora || !/^\d{1,2}:\d{2}$/.test(hora)) {
               hora = "00:00";
@@ -1001,6 +1007,94 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
     if (browser) await browser.close();
   }
 }
+
+// Busca o placar de UM jogo específico na Sportmonks, sob pedido do navegador
+// (botão 🛰️ nos cards LIVE/FT). O navegador não pode chamar a Sportmonks direto
+// (CORS bloqueia) - só o servidor consegue, por isso o pedido chega até aqui via
+// Firestore em vez de fetch() no browser. Mesma lógica de matching (normalizarNome
+// + includes nos dois sentidos) e mesmo shape de resposta (scores/participants)
+// já comprovados no PLANO A de sincronizarAoVivoBackend.
+async function buscarPlacarManualSportmonks(idJogo: string, mandante: string, visitante: string) {
+  const configDoc = await db.collection("configuracoes").doc("motor").get();
+  const config = configDoc.data() || {};
+  const smToken = config.sportmonks_token || "RaCnlPpnktbtlbuzsNd51VDXKnCcyZ4QRgtYlOFG4Av91CcQMNrTf4egKM9D";
+
+  const nomeM = normalizarNome(mandante);
+  const nomeV = normalizarNome(visitante);
+
+  const acharEExtrair = (lista: any[]) => {
+    const item = (lista || []).find((it: any) => {
+      const home = it.participants?.find((p: any) => p.meta?.location === "home");
+      const away = it.participants?.find((p: any) => p.meta?.location === "away");
+      const h = normalizarNome(home?.name);
+      const v = normalizarNome(away?.name);
+      return h && v && (nomeM.includes(h) || h.includes(nomeM)) && (nomeV.includes(v) || v.includes(nomeV));
+    });
+    if (!item) return null;
+    const home = item.participants?.find((p: any) => p.meta?.location === "home");
+    const away = item.participants?.find((p: any) => p.meta?.location === "away");
+    const scoresAtuais = (item.scores || []).filter((s: any) => s.description === "CURRENT");
+    return {
+      golsCasa: scoresAtuais.find((s: any) => s.participant_id === home?.id)?.score?.goals ?? 0,
+      golsFora: scoresAtuais.find((s: any) => s.participant_id === away?.id)?.score?.goals ?? 0,
+      minuto: item.state?.minute
+    };
+  };
+
+  try {
+    const resLive = await fetch(`https://api.sportmonks.com/v3/football/livescores/inplay?api_token=${smToken}&include=scores,state,participants`);
+    if (resLive.ok) {
+      const jsonLive = await resLive.json();
+      const achado = acharEExtrair(jsonLive.data);
+      if (achado) {
+        await db.collection("jogos_ao_vivo").doc(String(idJogo)).set({
+          golsCasa: achado.golsCasa, golsFora: achado.golsFora, status: "LIVE",
+          ...(achado.minuto ? { minutoAoVivo: `${achado.minuto}'` } : {}),
+          eventosAoVivoAtualizadoEm: new Date().toISOString()
+        }, { merge: true });
+        return { ok: true, golsCasa: achado.golsCasa, golsFora: achado.golsFora, origem: "ao vivo" };
+      }
+    } else {
+      return { ok: false, mensagem: `Sportmonks respondeu ${resLive.status} - confira o token na Sala de Máquinas.` };
+    }
+
+    // Não achou entre os ao vivo - tenta os resultados recentes (pode ter acabado
+    // de terminar). Não mexe no status aqui, só corrige o placar - quem decide FT
+    // continua sendo o relógio/raspagem, igual já funciona hoje.
+    const resLatest = await fetch(`https://api.sportmonks.com/v3/football/livescores/latest?api_token=${smToken}&include=scores,state,participants`);
+    const achadoLatest = resLatest.ok ? acharEExtrair((await resLatest.json()).data) : null;
+    if (achadoLatest) {
+      await db.collection("jogos_ao_vivo").doc(String(idJogo)).set({
+        golsCasa: achadoLatest.golsCasa, golsFora: achadoLatest.golsFora,
+        eventosAoVivoAtualizadoEm: new Date().toISOString()
+      }, { merge: true });
+      return { ok: true, golsCasa: achadoLatest.golsCasa, golsFora: achadoLatest.golsFora, origem: "recente" };
+    }
+
+    return { ok: false, mensagem: `"${mandante} x ${visitante}" não encontrado no Sportmonks agora (nem ao vivo, nem recém-encerrado).` };
+  } catch (e) {
+    return { ok: false, mensagem: `Erro ao consultar Sportmonks: ${(e as Error).message}` };
+  }
+}
+
+let lastPlacarManualTs: number | null = null;
+setInterval(async () => {
+  try {
+    const doc = await db.collection("configuracoes").doc("motor").get();
+    const pedido = doc.data()?.placarManualPedido;
+    if (!pedido || !pedido.ts) return;
+    if (lastPlacarManualTs === null) { lastPlacarManualTs = pedido.ts; return; }
+    if (pedido.ts === lastPlacarManualTs) return;
+    lastPlacarManualTs = pedido.ts;
+
+    console.log(`🛰️ Pedido manual de placar: ${pedido.mandante} x ${pedido.visitante}`);
+    const resultado = await buscarPlacarManualSportmonks(pedido.idJogo, pedido.mandante, pedido.visitante);
+    console.log(resultado.ok ? `   └─ Achado (${resultado.origem}): ${resultado.golsCasa}-${resultado.golsFora}` : `   └─ ${resultado.mensagem}`);
+    await db.collection("configuracoes").doc("motor").set({
+      placarManualResultado: { idJogo: pedido.idJogo, ts: pedido.ts, ...resultado }
+    }, { merge: true });
+  } catch (e) {}
+}, 3000);
 
 let lastTriggerTime: number | null = null;
 setInterval(async () => {
