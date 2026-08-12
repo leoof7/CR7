@@ -1,0 +1,35 @@
+# Infra as Code do Render. Com este arquivo na raiz do repo, o Render lê o build e o
+# start daqui em vez do que estiver configurado na mão no painel.
+#
+# POR QUE O DEPLOY ESTAVA FALHANDO ("Exited with status 1"):
+#   o package.json não tinha script "start", e o comando padrão do Render pra Node é
+#   `npm start` -> "Missing script: start" -> exit 1. Além disso `tsx` estava em
+#   devDependencies, que o Render não instala (NODE_ENV=production), então mesmo com o
+#   script o runtime não acharia o tsx. As duas coisas foram corrigidas no package.json.
+services:
+  - type: web
+    name: CR7
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+
+    # `--include=dev` garante o @types/node pro tsx, e o postinstall do package.json
+    # baixa o Chromium que o Playwright usa na raspagem.
+    buildCommand: npm install --include=dev
+
+    startCommand: npm start
+
+    # O Render considera o serviço saudável quando esta rota responde 200.
+    healthCheckPath: /
+
+    envVars:
+      # Guarda o Chromium num caminho dentro do projeto pra sobreviver ao cache de build.
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: /opt/render/project/.cache/ms-playwright
+
+      # Instância free tem 512 MB. Se a varredura com Playwright estourar a memória e
+      # derrubar o container, troque para "1": o motor sobe só com o sync de placares e
+      # as escutas do Cockpit (a raspagem segue disponível pelo botão "Salvar & Rodar").
+      - key: MOTOR_SEM_RASPAGEM
+        value: "0"

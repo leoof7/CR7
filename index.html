@@ -35,15 +35,17 @@ input:focus, select:focus, textarea:focus { border-color: #007aff; }
 .censored-livro .hide-livro { filter: blur(6px); pointer-events: none; user-select: none; opacity: 0.8; transition: filter 0.3s ease; }
 .pill-method { padding: 0.55rem 0.9rem; border-radius: 9999px; font-size: 0.68rem; font-weight: 800; cursor: pointer; transition: all 0.2s ease; text-transform: uppercase; border: 1.5px solid transparent; opacity: 0.55; }
 .pill-method:active { transform: scale(0.95); }
-.pill-over { background-color: #e0f2fe; color: #0284c7; border-color: #bae6fd; }
-.pill-under { background-color: #ffedd5; color: #ea580c; border-color: #fed7aa; }
+/* Cor por PERÍODO, mesma linguagem do getMethodPillStyle: HT verde, FT vermelho.
+   pill-over/pill-under ficam como apelidos pra não quebrar nada que ainda os use. */
+.pill-ht, .pill-over { background-color: #d1fae5; color: #047857; border-color: #a7f3d0; }
+.pill-ft, .pill-under { background-color: #fee2e2; color: #b91c1c; border-color: #fecaca; }
 .pill-prob { background-color: #fae8ff; color: #c026d3; border-color: #f5d0fe; }
 .pill-selected { opacity: 1 !important; transform: scale(1.03); box-shadow: 0 4px 14px rgba(0,0,0,0.25); border-width: 2px; }
 /* No tema escuro os pasteis claros originais ficavam deslavados/deslocados contra o
    fundo preto - troca pra badge translúcido, mesma linguagem visual usada no resto
    do app (getMethodPillStyle) em vez de reinventar uma paleta nova. */
-body.dark-theme .pill-over { background-color: rgba(56,189,248,0.15); color: #7dd3fc; border-color: rgba(56,189,248,0.4); }
-body.dark-theme .pill-under { background-color: rgba(251,146,60,0.15); color: #fdba74; border-color: rgba(251,146,60,0.4); }
+body.dark-theme .pill-ht, body.dark-theme .pill-over { background-color: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(16,185,129,0.4); }
+body.dark-theme .pill-ft, body.dark-theme .pill-under { background-color: rgba(239,68,68,0.15); color: #fca5a5; border-color: rgba(239,68,68,0.4); }
 body.dark-theme .pill-prob { background-color: rgba(232,121,249,0.15); color: #f0abfc; border-color: rgba(232,121,249,0.4); }
 
 /* PÍLULAS DE PAÍSES */
@@ -231,31 +233,33 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 
 <div>
 <label class="block text-gray-500 text-[10px] uppercase font-bold mb-2">Método Operacional</label>
-<input type="hidden" id="tradeMetodo" value="Over Limite FT" required>
+<input type="hidden" id="tradeMetodo" value="OVER LIMITE FT" required>
 <div class="space-y-3">
 <div>
-<span class="text-[8px] font-black text-sky-500 uppercase tracking-widest block mb-1.5">Over</span>
+<span class="text-[8px] font-black text-emerald-500 uppercase tracking-widest block mb-1.5">1º Tempo (HT)</span>
 <div class="flex flex-wrap gap-1.5">
-<button type="button" onclick="selectMethod('Over Limite FT', this)" class="pill-method pill-over pill-selected">Over Limite FT</button>
-<button type="button" onclick="selectMethod('Over 0.5 HT', this)" class="pill-method pill-over">Over 0.5 HT</button>
-<button type="button" onclick="selectMethod('Over Limite HT', this)" class="pill-method pill-over">Over Limite HT</button>
-<button type="button" onclick="selectMethod('Over a Frente HT', this)" class="pill-method pill-over">Over a Frente HT</button>
+<button type="button" onclick="selectMethod('OVER 0.5 HT', this)" class="pill-method pill-ht">Over 0.5 HT</button>
+<button type="button" onclick="selectMethod('OVER A FRENTE HT', this)" class="pill-method pill-ht">Over a Frente HT</button>
+<button type="button" onclick="selectMethod('UNDER LIMITE HT', this)" class="pill-method pill-ht">Under Limite HT</button>
+<button type="button" onclick="selectMethod('UNDER A FRENTE HT', this)" class="pill-method pill-ht">Under a Frente HT</button>
 </div>
 </div>
 <div>
-<span class="text-[8px] font-black text-orange-500 uppercase tracking-widest block mb-1.5">Under</span>
+<span class="text-[8px] font-black text-red-500 uppercase tracking-widest block mb-1.5">2º Tempo / Jogo (FT)</span>
 <div class="flex flex-wrap gap-1.5">
-<button type="button" onclick="selectMethod('Under Limite 2º T', this)" class="pill-method pill-under">Under Limite 2º T</button>
-<button type="button" onclick="selectMethod('Under Limite HT', this)" class="pill-method pill-under">Under Limite HT</button>
-<button type="button" onclick="selectMethod('Under a Frente HT', this)" class="pill-method pill-under">Under a Frente HT</button>
+<button type="button" onclick="selectMethod('OVER LIMITE FT', this)" class="pill-method pill-ft pill-selected">Over Limite FT</button>
+<button type="button" onclick="selectMethod('OVER A FRENTE FT', this)" class="pill-method pill-ft">Over a Frente FT</button>
+<button type="button" onclick="selectMethod('UNDER LIMITE FT', this)" class="pill-method pill-ft">Under Limite FT</button>
+<button type="button" onclick="selectMethod('UNDER A FRENTE FT', this)" class="pill-method pill-ft">Under a Frente FT</button>
 </div>
 </div>
 <div>
-<span class="text-[8px] font-black text-fuchsia-500 uppercase tracking-widest block mb-1.5">Outros</span>
+<span class="text-[8px] font-black text-fuchsia-500 uppercase tracking-widest block mb-1.5">Sem período</span>
 <div class="flex flex-wrap gap-1.5">
-<button type="button" onclick="selectMethod('1x2', this)" class="pill-method pill-prob">1x2</button>
-<button type="button" onclick="selectMethod('Back Favorito', this)" class="pill-method pill-prob">Back Favorito</button>
-<button type="button" onclick="selectMethod('Lay Zebra', this)" class="pill-method pill-prob">Lay Zebra</button>
+<button type="button" onclick="selectMethod('AMBAS MARCAM', this)" class="pill-method pill-prob">Ambas Marcam</button>
+<button type="button" onclick="selectMethod('1X2', this)" class="pill-method pill-prob">1x2</button>
+<button type="button" onclick="selectMethod('BACK FAVORITO', this)" class="pill-method pill-prob">Back Favorito</button>
+<button type="button" onclick="selectMethod('LAY ZEBRA', this)" class="pill-method pill-prob">Lay Zebra</button>
 </div>
 </div>
 </div>
@@ -414,20 +418,18 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 <button onclick="salvarConfigMotor()" id="btnSalvarCockpit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors">Salvar & Rodar</button>
 </div>
 </div>
-<div class="grid grid-cols-2 gap-3 pt-2 border-t border-black/5 dark:border-white/10">
-<div>
-<label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">API-Sports Key</label>
-<input type="password" id="configApiFutebol" value="e131aa61be7308e97441e475374f47f1" class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
-</div>
-<div>
-<label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">Sportmonks Token</label>
-<input type="password" id="configSportmonks" value="RaCnlPpnktbtlbuzsNd51VDXKnCcyZ4QRgtYlOFG4Av91CcQMNrTf4egKM9D" class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
-</div>
+<div class="pt-2 border-t border-black/5 dark:border-white/10">
+<label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">API-Sports Key (fonte única de placar ao vivo)</label>
+<input type="password" id="configApiFutebol" value="a1d3726b4534be5d0d6c091ad598b242" class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
 </div>
 <button onclick="testarApisCockpit()" class="w-full bg-[#2c2c2e] hover:bg-gray-700 text-blue-400 font-bold py-3 rounded-xl text-[10px] uppercase tracking-wider transition-colors border border-white/5 shadow-sm">📡 Testar Conexões (Ao Vivo)</button>
 <div id="apiTestLog" class="text-[9px] font-mono mt-2 p-3 bg-black/40 rounded-xl border border-white/5 break-words">Log de conexão...</div>
 <div id="apiTestResults" class="space-y-1"></div>
-<p class="text-[9px] text-gray-500 mt-2">Ao salvar, o backend passará a monitorar os placares ao vivo por essas APIs a cada 5 minutos.</p>
+<div class="mt-2 p-3 bg-black/40 rounded-xl border border-white/5">
+<span class="block text-gray-500 text-[9px] uppercase font-bold mb-1">🎟️ Orçamento API-Sports (free: 100/dia · 10/min)</span>
+<span id="txtStatusQuotaApiSports" class="text-[10px] font-mono text-gray-400 font-bold block">Aguardando o motor...</span>
+</div>
+<p class="text-[9px] text-gray-500 mt-2">A API-Sports é a fonte única de placar ao vivo, limitada pelo governador de quota: no máximo 90 requisições por janela (reseta 21:00, horário de Brasília), com ritmo adaptativo e zero chamadas quando não há jogo em andamento. Uma requisição atualiza todos os jogos de uma vez. O botão de teste acima e o 🔄 dos cards gastam 1 requisição da reserva.</p>
 </div>
 </div>
 
@@ -585,55 +587,53 @@ function isCardOrCornerRule(ruleText) {
          txt.includes('escanteio') || txt.includes('corner') || txt.includes('card');
 }
 
+// Teste de conexões do Cockpit. O navegador NÃO chama a API direto: a API-Sports
+// bloqueia CORS (o fetch morria em "Falha de Rede"). Grava um PEDIDO no Firestore
+// - mesmo canal do botão 🔄 dos cards e do "Salvar & Rodar" - e o motor.ts responde
+// no mesmo doc. Ganhos: sai do CORS, a chave não precisa trafegar do browser pra
+// API, e a requisição é debitada da reserva pelo governador de quota.
+const CORES_LOG_TESTE = { info: 'text-gray-400', ok: 'text-green-400', erro: 'text-red-400', aviso: 'text-yellow-400' };
+
 async function testarApisCockpit() {
-    const smToken = document.getElementById('configSportmonks').value;
     const afKey = document.getElementById('configApiFutebol').value;
     const logBox = document.getElementById('apiTestLog');
     const resultsBox = document.getElementById('apiTestResults');
 
-    logBox.innerHTML = '<span class="text-blue-400">Iniciando teste de conectividade...</span>';
+    logBox.innerHTML = '<span class="text-blue-400">Enviando pedido de teste ao motor...</span>';
     resultsBox.innerHTML = '';
-    let liveGames = [];
 
+    const ts = Date.now();
     try {
-        logBox.innerHTML += '<br><span class="text-gray-400">Consultando Sportmonks (1/2)...</span>';
-        const smRes = await fetch(`https://api.sportmonks.com/v3/football/livescores/inplay?api_token=${smToken}&include=scores,state,events`);
-        if(smRes.ok) {
-            const smData = await smRes.json();
-            logBox.innerHTML += `<br><span class="text-green-400">✅ Sportmonks OK! (${smData.data?.length || 0} ativos)</span>`;
-            if(smData.data) {
-                smData.data.slice(0,3).forEach(g => {
-                    const h = g.participants?.find(p => p.meta?.location === 'home')?.name || 'Casa';
-                    const a = g.participants?.find(p => p.meta?.location === 'away')?.name || 'Fora';
-                    liveGames.push(`[SM] ${h} x ${a} (${g.state?.minute || 'LIVE'})`);
-                });
-            }
-        } else {
-             logBox.innerHTML += `<br><span class="text-red-400">❌ Erro Sportmonks: Status ${smRes.status}</span>`;
+        await db.collection('configuracoes').doc('motor').set({
+            testeApisPedido: { ts, asKey: afKey }
+        }, { merge: true });
+
+        logBox.innerHTML += '<br><span class="text-gray-400">Aguardando o motor consultar as APIs...</span>';
+
+        const resultado = await new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => { unsub(); reject(new Error('O motor não respondeu em 30s - confira se ele está rodando (veja o status acima).')); }, 30000);
+            const unsub = db.collection('configuracoes').doc('motor').onSnapshot(doc => {
+                const r = doc.data()?.testeApisResultado;
+                if (r && r.ts === ts) { clearTimeout(timeoutId); unsub(); resolve(r); }
+            }, err => { clearTimeout(timeoutId); unsub(); reject(err); });
+        });
+
+        logBox.innerHTML = (resultado.linhas || [])
+            .map(l => `<span class="${CORES_LOG_TESTE[l.tipo] || 'text-gray-400'}">${l.texto}</span>`)
+            .join('<br>');
+        if (resultado.quota) {
+            logBox.innerHTML += `<br><span class="text-blue-400">🎟️ ${resultado.quota}</span>`;
         }
 
-        logBox.innerHTML += '<br><span class="text-gray-400">Consultando API-Sports (2/2)...</span>';
-        const afRes = await fetch(`https://v3.football.api-sports.io/fixtures?live=all`, { headers: { 'x-apisports-key': afKey }});
-        if(afRes.ok) {
-            const afData = await afRes.json();
-            logBox.innerHTML += `<br><span class="text-green-400">✅ API-Sports OK! (${afData.response?.length || 0} ativos)</span>`;
-            if(afData.response) {
-                afData.response.slice(0,3).forEach(g => {
-                    liveGames.push(`[AS] ${g.teams?.home?.name} x ${g.teams?.away?.name} (${g.fixture?.status?.elapsed || 'LIVE'}')`);
-                });
-            }
-        } else {
-            logBox.innerHTML += `<br><span class="text-red-400">❌ Erro API-Sports: Status ${afRes.status}</span>`;
-        }
-
-        if(liveGames.length > 0) {
-            resultsBox.innerHTML = '<h4 class="text-[10px] text-gray-500 font-bold mb-1 mt-2">AMOSTRAGEM AO VIVO (Top 5):</h4>' + 
-            liveGames.slice(0, 5).map(g => `<div class="text-[9px] bg-black/20 p-2 rounded-lg mb-1 text-gray-300 font-mono border border-white/5">${g}</div>`).join('');
+        const amostra = resultado.amostra || [];
+        if (amostra.length > 0) {
+            resultsBox.innerHTML = '<h4 class="text-[10px] text-gray-500 font-bold mb-1 mt-2">AMOSTRAGEM AO VIVO (Top 5):</h4>' +
+            amostra.slice(0, 5).map(g => `<div class="text-[9px] bg-black/20 p-2 rounded-lg mb-1 text-gray-300 font-mono border border-white/5">${g}</div>`).join('');
         } else {
             resultsBox.innerHTML = '<div class="text-[10px] text-gray-500 mt-2">Nenhum jogo rolando no momento (segundo as APIs).</div>';
         }
     } catch (e) {
-         logBox.innerHTML += `<br><span class="text-red-400">❌ Falha de Rede: ${e.message}</span>`;
+         logBox.innerHTML += `<br><span class="text-red-400">❌ ${e.message}</span>`;
     }
 }
 
@@ -712,22 +712,20 @@ function combinarCasaFora(valCasa, valFora, metodo, pesoCasa, pesoFora) {
   return (valCasa * wCasa + valFora * wFora) / (wCasa + wFora);
 }
 
+// A cor da pílula agora indica o PERÍODO, não o mercado: HT verde, FT vermelho.
+// Era um arco-íris de 15 cores em que nada dizia de que tempo a tip era.
+// Mercados sem período (Ambas Marcam, Back Favorito, 1x2, Lay Zebra) mantêm cor própria.
 function getMethodPillStyle(metodo) {
   const m = (metodo || '').toUpperCase();
-  if (m.includes('OVER 0.5 2T')) return 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/40 shadow-sm';
-  if (m.includes('OVER LIMITE 2T')) return 'bg-violet-500/20 text-violet-300 border border-violet-500/40 shadow-sm';
-  if (m.includes('UNDER LIMITE 2T')) return 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm';
-  if (m.includes('MARCA GOL')) return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm';
-  if (m.includes('SOFRE GOL')) return 'bg-rose-600/20 text-rose-300 border border-rose-600/40 shadow-sm';
-  if (m.includes('OVER 0.5 HT')) return 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm';
-  if (m.includes('OVER A FRENTE')) return 'bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm';
-  if (m.includes('OVER LIMITE HT')) return 'bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm';
-  if (m.includes('OVER')) return 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm';
-  if (m.includes('UNDER A FRENTE')) return 'bg-orange-500/20 text-orange-300 border border-orange-500/40 shadow-sm';
-  if (m.includes('UNDER')) return 'bg-amber-600/20 text-amber-300 border border-amber-500/40 shadow-sm';
-  if (m.includes('BACK FAVORITO')) return 'bg-green-500/20 text-green-300 border border-green-500/40 shadow-sm';
+
+  if (m.includes('AMBAS')) return 'bg-lime-500/20 text-lime-300 border border-lime-500/40 shadow-sm';
+  if (m.includes('BACK FAVORITO')) return 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm';
   if (m.includes('LAY ZEBRA')) return 'bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-sm';
   if (m.includes('1X2')) return 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm';
+
+  const periodo = periodoDoMetodo(metodo);
+  if (periodo === 'HT') return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm';
+  if (periodo === 'FT') return 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm';
   return 'bg-purple-600/20 text-purple-300 border border-purple-500/40 shadow-sm';
 }
 
@@ -742,11 +740,78 @@ const OPORTUNIDADE_PISO = 0.65; // piso mínimo global - abaixo disso nem entra 
 const OPORTUNIDADE_PISO_VOLATIL = 0.70;
 function ehMetodoVolatil(metodo) { return /\bHT\b|\b2T\b|2ºT/i.test(metodo || ''); }
 
+// "Ambas Marcam" tem piso próprio, mais alto: é um mercado que depende dos DOIS
+// lados marcarem, então merece exigência maior que um Over comum.
+const AMBAS_PISO = 0.70;
+// Lay Zebra só entra quando a zebra passa de 75% de jogos SEM VITÓRIA.
+const LAY_ZEBRA_PISO = 0.75;
+
 // Peso de cada fonte no bônus de cruzamento (ver seção 4.5 abaixo) - Desempenho/Gols
 // vêm do histórico específico do time (mais confiável), Tendências é forma recente
 // agregada, Confronto Direto é o histórico do confronto (pode ser mais antigo).
 const PESO_FONTE = { 'Desempenho': 3, 'Gols': 3, 'Tendências Recentes': 2, 'Confronto Direto': 1 };
 function pesoDaFonte(origem) { return PESO_FONTE[origem] ?? 1; }
+
+// BUG CORRIGIDO (pílula repetida no mesmo jogo):
+// o dedup final era por método+regra, então a MESMA pílula aparecia 2 ou 3 vezes
+// com regras diferentes - "OVER LIMITE FT" saía três vezes num jogo (Over 1.5,
+// Ambas Marcam e Over 2.5), parecendo três apostas quando é uma. Pior: rótulos
+// diferentes podem ser a MESMA aposta ("Marca Gol 2T" e "Over 0.5 2T" são os dois
+// "sai gol no 2º tempo").
+// Agora cada método cai numa FAMÍLIA e só a mais forte de cada família sobrevive.
+// A operação tem DOIS períodos, não três: HT (1º tempo) e FT (2º tempo / jogo
+// inteiro). Todo rótulo "2T" passa a FT, porque a entrada no 2º tempo é sempre no
+// mercado de gols do jogo - "no segundo todo over é limite ou a frente".
+// No 1º tempo existem só dois mercados: OVER 0.5 HT e OVER A FRENTE HT.
+function familiaDoMetodo(metodo) {
+  // Normaliza as variações de rótulo de tempo já gravadas no Livro em épocas
+  // diferentes ("2º T", "2ºT", "2º Tempo", "1º T") antes de decidir o período.
+  const m = (metodo || '').toUpperCase()
+    .replace(/2\s*[ºO°]\s*T(EMPO)?\b/g, '2T')
+    .replace(/1\s*[ºO°]\s*T(EMPO)?\b/g, 'HT');
+  const periodo = m.includes('HT') ? 'HT' : 'FT'; // 2T e qualquer coisa sem HT = FT
+
+  // Ambas Marcam é mercado à parte - fica fora de qualquer fusão de over.
+  if (m.includes('AMBAS')) return 'AMBAS';
+  // "A Frente" é vantagem no placar, não volume de gols. Tem que sair antes dos
+  // ramos OVER/UNDER, senão seria fundido com o over do mesmo período.
+  if (m.includes('A FRENTE')) return (m.includes('UNDER') ? 'UNDER_FRENTE_' : 'OVER_FRENTE_') + periodo;
+  if (m.includes('SOFRE GOL')) return 'SOFRE_' + periodo;
+  // No HT tudo que é "sai gol" (Over 0.5, Over Limite, Marca Gol, marcou primeiro)
+  // é o mesmo método. No FT tudo que é over vira OVER LIMITE FT.
+  if (m.includes('MARCA GOL') || m.includes('OVER')) return periodo === 'HT' ? 'GOL_HT' : 'OVER_FT';
+  if (m.includes('UNDER')) return 'UNDER_' + periodo;
+  return m; // BACK FAVORITO, 1X2, LAY ZEBRA seguem cada um por si
+}
+
+// Rótulo único por família. Serve pro display e pro "Desempenho por Método" do Livro:
+// sem isso, uma entrada manual do Trade ("Over Limite FT") e uma tip do sistema
+// ("OVER LIMITE FT") viravam DUAS linhas visualmente idênticas.
+const ROTULO_FAMILIA = {
+  'GOL_HT': 'OVER 0.5 HT',
+  'OVER_FT': 'OVER LIMITE FT',
+  'UNDER_HT': 'UNDER LIMITE HT',
+  'UNDER_FT': 'UNDER LIMITE FT',
+  'OVER_FRENTE_HT': 'OVER A FRENTE HT',
+  'OVER_FRENTE_FT': 'OVER A FRENTE FT',
+  'UNDER_FRENTE_HT': 'UNDER A FRENTE HT',
+  'UNDER_FRENTE_FT': 'UNDER A FRENTE FT',
+  'SOFRE_HT': 'SOFRE GOL HT',
+  'SOFRE_FT': 'SOFRE GOL FT',
+  'AMBAS': 'AMBAS MARCAM'
+};
+
+function rotuloCanonicoMetodo(metodo) {
+  const fam = familiaDoMetodo(metodo);
+  return ROTULO_FAMILIA[fam] || (metodo || '').toUpperCase().trim();
+}
+
+// Período do método, pra cor da pílula e pra validação de green/red.
+function periodoDoMetodo(metodo) {
+  const fam = familiaDoMetodo(metodo);
+  if (fam === 'AMBAS' || !ROTULO_FAMILIA[fam]) return null; // sem período (Ambas, Back Favorito, 1x2, Lay Zebra)
+  return fam.endsWith('_HT') ? 'HT' : 'FT';
+}
 
 // Retorna a lista COMPLETA de oportunidades válidas (>= 65%) do jogo, cada uma
 // carregando "fonte" (de onde no site veio o número) pra ser auditável no card.
@@ -777,6 +842,44 @@ function extrairOportunidadesJogo(j) {
     const totalJogosFora = totalJogosRow ? parseInt(totalJogosRow.fora) || 0 : null;
     const desempenhoTemAmostra = totalJogosRow === undefined || (totalJogosCasa > 0 || totalJogosFora > 0);
 
+    // ---- "Ambas Marcam": pílula própria, média dos DOIS times, piso de 70% ----
+    // Antes caía no catch-all "OVER LIMITE FT" (mesma pílula de Over 1.5/2.5, o que
+    // gerava a repetição) e podia entrar com a taxa de um time só. Agora é coletada
+    // aqui e só vira oportunidade no fim, quando dá pra fechar a média dos dois lados.
+    // `ambos` guarda linhas que já trazem casa E fora (Gols/Desempenho); `casa`/`fora`
+    // guardam linhas de um time só (Tendências/Confronto), identificadas pelo nome.
+    const ambas = { casa: [], fora: [], ambos: [], origens: new Set(), rotulos: [] };
+
+    // Taxa de vitória de cada lado, preenchida no loop de Desempenho e consumida
+    // pela regra de Lay Zebra (seção 4.45).
+    let venceuCasa = null, venceuFora = null;
+    const nomeCasaNorm = semAcento(j.mandante);
+    const nomeForaNorm = semAcento(j.visitante);
+
+    const ladoDaRegra = (texto) => {
+      const t = semAcento(texto);
+      if (nomeCasaNorm && t.includes(nomeCasaNorm)) return 'casa';
+      if (nomeForaNorm && t.includes(nomeForaNorm)) return 'fora';
+      return null;
+    };
+
+    // Só o "Ambas Marcam" de jogo inteiro entra. "Ambas Marcam no 1º/2º Tempo" é
+    // OUTRO mercado - jogar os dois na mesma média produziria um número que não
+    // existe em nenhuma das duas estatísticas de origem.
+    const ehAmbasTempoInteiro = (texto) => {
+      const t = (texto || '').toUpperCase();
+      return t.includes('AMBAS') && !/1º|2º|1O TEMPO|2O TEMPO|PRIMEIRO TEMPO|SEGUNDO TEMPO|\bHT\b|\b2T\b/.test(t);
+    };
+
+    const registrarAmbas = (valor, origem, textoMetrica, lado) => {
+      if (!ehAmbasTempoInteiro(textoMetrica)) return;
+      if (valor === null || valor === undefined || isNaN(valor)) return;
+      if (lado === 'casa' || lado === 'fora') ambas[lado].push(valor);
+      else ambas.ambos.push(valor);
+      ambas.origens.add(origem);
+      if (ambas.rotulos.length < 3) ambas.rotulos.push(`${origem}: ${textoMetrica}`);
+    };
+
     const addOportunidade = (metodo, regra, rateVal, rateStr, origem, periodo, casaFora) => {
       if (rateVal === null) return;
       const piso = ehMetodoVolatil(metodo) ? OPORTUNIDADE_PISO_VOLATIL : OPORTUNIDADE_PISO;
@@ -785,8 +888,13 @@ function extrairOportunidadesJogo(j) {
         const linha = extrairLinhaNumerica(regra) ?? extrairLinhaNumerica(metodo);
         if (linha !== null && linha >= 3.5) return; // acima de 3.5 é quase sempre verdade, não é uma oportunidade de verdade
       }
+      // Canoniza o rótulo AQUI, na origem: display, pílula, validação de green/red e
+      // "Desempenho por Método" no Livro passam todos a falar a mesma língua.
+      // O piso acima usa o método ORIGINAL de propósito - um número que veio de
+      // recorte de meio-tempo tem amostra efetiva menor e exige taxa maior, mesmo
+      // que o rótulo final seja FT.
       oportunidades.push({
-        metodo, regra, rateStr,
+        metodo: rotuloCanonicoMetodo(metodo), regra, rateStr,
         percent: Math.round(rateVal * 100),
         fonte: { origem, rotulo: regra, valorBruto: rateStr },
         tempo: periodo || null,
@@ -812,10 +920,16 @@ function extrairOportunidadesJogo(j) {
       // (OVER LIMITE FT) só porque não batia em UNDER nem em VITÓRIA - virava uma
       // tip de "mais de X gols no jogo todo" sem relação nenhuma com quem marca
       // primeiro. Mesmo tratamento já usado em Desempenho (linha "MARCOU PRIMEIRO").
+      // Ambas Marcam sai do catch-all e vai pro acumulador dedicado (pílula própria).
+      if (rUpper.includes('AMBAS')) {
+        registrarAmbas(rateVal, 'Tendências Recentes', t.regra, ladoDaRegra(t.regra));
+        continue;
+      }
+
       if (rUpper.includes('MARCOU PRIMEIRO') || rUpper.includes('PRIMEIRO GOL') || rUpper.includes('PRIMEIRO A MARCAR')) metodo = 'OVER 0.5 HT';
       else if (rUpper.includes('UNDER') || rUpper.includes('MENOS')) metodo = 'UNDER LIMITE FT';
       else if (rUpper.includes('VITÓRIA') || rUpper.includes('VITORIA') || rUpper.includes('VENCE') || rUpper.includes('SEM DERROTA')) metodo = 'BACK FAVORITO';
-      else metodo = 'OVER LIMITE FT'; // Ambas Marcam, Mais de X Gols, Marcou Gol etc.
+      else metodo = 'OVER LIMITE FT'; // Mais de X Gols, Marcou Gol etc.
 
       addOportunidade(metodo, t.regra, rateVal, t.rate, 'Tendências Recentes');
     }
@@ -831,10 +945,15 @@ function extrairOportunidadesJogo(j) {
       const mUpper = (c.metrica || '').toUpperCase();
       let metodo = '';
 
+      if (mUpper.includes('AMBAS')) {
+        registrarAmbas(rateVal, 'Confronto Direto', c.metrica, ladoDaRegra(c.metrica));
+        continue;
+      }
+
       if (mUpper.includes('MARCOU PRIMEIRO') || mUpper.includes('PRIMEIRO GOL') || mUpper.includes('PRIMEIRO A MARCAR')) metodo = 'OVER 0.5 HT';
       else if (mUpper.includes('MENOS DE') || mUpper.includes('UNDER')) metodo = 'UNDER LIMITE FT';
       else if (mUpper.includes('VITÓRIA') || mUpper.includes('VITORIA') || mUpper.includes('SEM DERROTA')) metodo = 'BACK FAVORITO';
-      else metodo = 'OVER LIMITE FT'; // Ambas Marcam, Mais de X, etc.
+      else metodo = 'OVER LIMITE FT'; // Mais de X, etc.
 
       addOportunidade(metodo, c.metrica, rateVal, c.valor, 'Confronto Direto');
     }
@@ -868,6 +987,16 @@ function extrairOportunidadesJogo(j) {
       const ehPorTempo = (g.secao || '').toLowerCase().includes('gols por tempo');
       const segundo = ehSegundoTempo(g.subRotulo);
       const sufixo = ehPorTempo ? (segundo ? '2T' : 'HT') : 'FT';
+
+      // Aqui a linha traz casa E fora: é a fonte que fecha a média dos dois times.
+      if (mUpper.includes('AMBAS')) {
+        const vC = parseRateToPercent(g.casa, totalJogosCasa);
+        const vF = parseRateToPercent(g.fora, totalJogosFora);
+        const valores = [vC, vF].filter(v => v !== null && !isNaN(v));
+        if (valores.length === 2) registrarAmbas((vC + vF) / 2, 'Gols', g.metrica, null);
+        else if (valores.length === 1) registrarAmbas(valores[0], 'Gols', g.metrica, vC !== null ? 'casa' : 'fora');
+        continue;
+      }
 
       let metodo = '';
       let linhaOver = null, linhaUnder = null;
@@ -938,6 +1067,17 @@ function extrairOportunidadesJogo(j) {
       const segundo = ehSegundoTempo(d.subRotulo);
       const sufixo = segundo ? '2T' : 'HT';
 
+      // Desempenho também traz casa E fora - outra fonte pra fechar a média.
+      // Antes esta linha não batia em nenhum branch e era descartada em silêncio.
+      if (mUpper.includes('AMBAS')) {
+        const vC = parseRateToPercent(d.casa, totalJogosCasa);
+        const vF = parseRateToPercent(d.fora, totalJogosFora);
+        const valores = [vC, vF].filter(v => v !== null && !isNaN(v));
+        if (valores.length === 2) registrarAmbas((vC + vF) / 2, 'Desempenho', d.metrica, null);
+        else if (valores.length === 1) registrarAmbas(valores[0], 'Desempenho', d.metrica, vC !== null ? 'casa' : 'fora');
+        continue;
+      }
+
       let metodo = '';
       if (mUpper.includes('MARCOU PRIMEIRO') || mUpper.includes('PRIMEIRO GOL')) metodo = 'OVER 0.5 HT'; // este É sobre o 1º gol do jogo por natureza, independe da seção
       else if (mUpper.includes('MARCOU GOL')) { if (ehPorTempo) metodo = `MARCA GOL ${sufixo}`; }
@@ -950,7 +1090,79 @@ function extrairOportunidadesJogo(j) {
       const valFora = parseRateToPercent(d.fora, totalJogosFora);
       const combinado = combinarCasaFora(valCasa, valFora, metodo, totalJogosCasa, totalJogosFora);
 
+      // Guarda a taxa de vitória de CADA lado separada, pra regra de Lay Zebra
+      // abaixo. A média dos dois não serve: a pergunta é sobre a zebra especificamente.
+      if (mUpper.includes('VENCEU') && !ehPorTempo) { venceuCasa = valCasa; venceuFora = valFora; }
+
       addOportunidade(metodo, d.metrica, combinado, `${d.casa ?? ''} / ${d.fora ?? ''}`, 'Desempenho', ehPorTempo ? sufixo : null, { casa: d.casa, fora: d.fora });
+    }
+
+    // =========== 4.4 AMBAS MARCAM (média dos dois times, piso de 70%) ===========
+    // Só entra com os DOIS lados representados: ou uma linha que já traz casa e fora
+    // (Gols/Desempenho), ou uma linha de cada time (Tendências/Confronto). Com um
+    // lado só, o número não descreve o mercado - e aí não vira tip nenhuma.
+    const mediaDe = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+    const mAmbos = mediaDe(ambas.ambos);
+    const mCasa = mediaDe(ambas.casa);
+    const mFora = mediaDe(ambas.fora);
+
+    let ambasValor = null;
+    if (mCasa !== null && mFora !== null) ambasValor = (mCasa + mFora) / 2;
+    if (mAmbos !== null) ambasValor = ambasValor !== null ? (ambasValor + mAmbos) / 2 : mAmbos;
+
+    if (ambasValor !== null && ambasValor >= AMBAS_PISO) {
+      const pct = Math.round(ambasValor * 100);
+      oportunidades.push({
+        metodo: 'AMBAS MARCAM',
+        regra: 'Ambas Marcam - média dos dois times',
+        rateStr: `${pct}%`,
+        percent: pct,
+        fonte: {
+          origem: [...ambas.origens].join(' + ') || 'Gols',
+          rotulo: ambas.rotulos.join(' · ') || 'Ambas Marcam',
+          valorBruto: `${pct}% (média)`
+        },
+        tempo: null,
+        casaFora: (mCasa !== null && mFora !== null)
+          ? { casa: `${Math.round(mCasa * 100)}%`, fora: `${Math.round(mFora * 100)}%` }
+          : null
+      });
+    }
+
+    // =========== 4.45 LAY ZEBRA ESTATÍSTICO ===========
+    // Zebra = lado de ODD MAIS ALTA, ou seja, a menor probabilidade implícita de
+    // vitória. Lay Zebra ganha quando ela NÃO vence, então a taxa que importa é
+    // "sem vitória" = 1 - (taxa de vitória da zebra), cobrindo empate e derrota.
+    // Só entra a partir de 75%.
+    // Antes só existia Lay Zebra pelo fallback de odds (as duas >= 3.50), quando não
+    // havia nenhuma outra tip - agora é uma oportunidade estatística de fato.
+    const oddCasaNum = parseFloat(j.oddCasa);
+    const oddForaNum = parseFloat(j.oddFora);
+
+    if (!isNaN(oddCasaNum) && !isNaN(oddForaNum) && oddCasaNum !== oddForaNum) {
+      const zebraEhCasa = oddCasaNum > oddForaNum;
+      const venceuZebra = zebraEhCasa ? venceuCasa : venceuFora;
+
+      if (venceuZebra !== null && !isNaN(venceuZebra)) {
+        const semVitoria = 1 - venceuZebra;
+        if (semVitoria >= LAY_ZEBRA_PISO) {
+          const pct = Math.round(semVitoria * 100);
+          const nomeZebra = zebraEhCasa ? j.mandante : j.visitante;
+          const oddZebra = (zebraEhCasa ? oddCasaNum : oddForaNum).toFixed(2);
+          oportunidades.push({
+            metodo: 'LAY ZEBRA',
+            regra: `${nomeZebra} (zebra, odd ${oddZebra}) não vence em ${pct}% dos jogos`,
+            rateStr: `${pct}% sem vitória`,
+            percent: pct,
+            fonte: {
+              origem: 'Desempenho',
+              rotulo: `Taxa de vitória da zebra: ${Math.round(venceuZebra * 100)}%`,
+              valorBruto: `${pct}% sem vitória (empate ou derrota)`
+            },
+            tempo: null
+          });
+        }
+      }
     }
 
     // =========== 4.5 CRUZAMENTO DE FONTES ===========
@@ -962,13 +1174,17 @@ function extrairOportunidadesJogo(j) {
     // agregada (peso 2), Confronto Direto é histórico do confronto e pode ser mais
     // antigo (peso 1) - uma tip confirmada por Desempenho vale mais que confirmada só
     // por Confronto Direto.
+    // Agrupado por FAMÍLIA, não por rótulo: se Tendências aponta "Over 1.5 FT" e
+    // Gols aponta "Over 2.5 FT", são duas fontes concordando com o mesmo sinal de
+    // volume - antes isso passava batido porque os rótulos diferiam.
     const origensPorMetodo = {};
     oportunidades.forEach(o => {
-      if (!origensPorMetodo[o.metodo]) origensPorMetodo[o.metodo] = new Set();
-      origensPorMetodo[o.metodo].add(o.fonte.origem);
+      const fam = familiaDoMetodo(o.metodo);
+      if (!origensPorMetodo[fam]) origensPorMetodo[fam] = new Set();
+      origensPorMetodo[fam].add(o.fonte.origem);
     });
     oportunidades.forEach(o => {
-      const origens = origensPorMetodo[o.metodo];
+      const origens = origensPorMetodo[familiaDoMetodo(o.metodo)];
       if (origens.size >= 2) {
         o.confirmadoPorFontes = origens.size;
         // Soma o peso das OUTRAS fontes que confirmam (não conta a própria origem).
@@ -978,13 +1194,21 @@ function extrairOportunidadesJogo(j) {
       }
     });
 
-    // =========== 5. DEDUP + ORDENA ===========
-    const vistos = new Set();
+    // =========== 5. DEDUP POR FAMÍLIA + ORDENA ===========
+    // Ordena por confiança e mantém só a MAIS FORTE de cada família. Como a lista já
+    // vem ordenada, a primeira de cada família é a vencedora. As descartadas viram
+    // contagem em `fundidas`, pra deixar claro no card que outras leituras do mesmo
+    // mercado foram absorvidas em vez de simplesmente desaparecerem.
+    const vistos = new Map();
     const unicas = [];
     oportunidades.sort((a, b) => b.percent - a.percent).forEach(o => {
-      const chave = o.metodo + '|' + o.regra;
-      if (vistos.has(chave)) return;
-      vistos.add(chave);
+      const fam = familiaDoMetodo(o.metodo);
+      const vencedora = vistos.get(fam);
+      if (vencedora) {
+        vencedora.fundidas = (vencedora.fundidas || 0) + 1;
+        return;
+      }
+      vistos.set(fam, o);
       unicas.push(o);
     });
 
@@ -1104,27 +1328,35 @@ function validarGreenRed(opp, j) {
   // uma vez), mas a API ao vivo trouxe os gols com minuto, deriva o HT contando
   // quem marcou até o 45' - assim os métodos HT/2T continuam validáveis mesmo sem
   // o placar de intervalo raspado.
+  //
+  // BUG CORRIGIDO (HT/2T travado em "Aguard. Intervalo"):
+  // a condição era `golsDet.some(g => g.tempo)`, que é FALSA num jogo 0-0 - lista
+  // vazia era lida como "falta dado" quando na verdade é a resposta certa: zero gol
+  // no 1º e zero no 2º tempo. Justamente o caso mais fácil de validar ficava sem
+  // green/red pra sempre. Agora o critério é a API ter passado no jogo
+  // (eventosAoVivoAtualizadoEm) E o detalhe fechar com o placar - aí lista vazia
+  // com placar 0-0 é dado completo, e detalhe faltando gol continua barrado (com
+  // 3 gols no placar e 1 na lista, o recorte 1T/2T sairia errado).
   const golsDet = Array.isArray(j.golsDetalhados) ? j.golsDetalhados : [];
-  const temHTDerivado = !temHTPlacar && golsDet.some(g => g.tempo);
+  const apiPassouNoJogo = !!j.eventosAoVivoAtualizadoEm;
+  const detalheDeGolCompleto = apiPassouNoJogo && golsDet.length === totalFT;
+  const temHTDerivado = !temHTPlacar && detalheDeGolCompleto;
   const temHT = temHTPlacar || temHTDerivado;
   const totalHT = temHTPlacar
     ? (parseInt(j.golsHTCasa) || 0) + (parseInt(j.golsHTFora) || 0)
     : (temHTDerivado ? golsDet.filter(g => g.tempo === '1T').length : null);
-  const total2T = temHT ? totalFT - totalHT : null;
+  // O período de validação vem do MÉTODO, não da seção do site que originou o número:
+  // é o método que descreve a aposta de fato. Com "2T" fundido em FT, uma tip que
+  // nasceu de "Gols por Tempo > Segundo" mas cujo método é OVER LIMITE FT passa a ser
+  // conferida contra os gols do JOGO INTEIRO - que é o mercado em que a entrada
+  // acontece. O ramo separado de 2º tempo deixou de existir junto com o rótulo.
+  const ehAFrente = metodo.includes('A FRENTE');
+  const validaContraHT = !ehAFrente && periodoDoMetodo(metodo) === 'HT';
 
-  const eh2TReal = opp.tempo === '2T' || metodo.endsWith(' 2T') || metodo.includes('2T-');
-  const ehHTReal = !eh2TReal && metodo.includes('HT') && !metodo.includes('A FRENTE');
-
-  if (ehHTReal) {
-    if (!temHT) return null; // aguardando placar do intervalo (motor ainda não capturou)
+  if (validaContraHT) {
+    if (!temHT) return null; // sem recorte do 1º tempo (nem raspado, nem derivado da API)
     if (metodo.includes('UNDER')) return passaLinhaUnder(totalHT, linha, 1.5);
     return passaLinhaOver(totalHT, linha, 0.5);
-  }
-
-  if (eh2TReal) {
-    if (!temHT) return null;
-    if (metodo.includes('UNDER')) return passaLinhaUnder(total2T, linha, 1.5);
-    return passaLinhaOver(total2T, linha, 0.5);
   }
 
   // Mercados de resultado (não são linha de gols)
@@ -1223,12 +1455,59 @@ function getCountryPillStyleAttr(pais) {
   return `background-color:hsl(${hue} 68% 30%) !important; color:#fff !important; font-weight:900;`;
 }
 
-// Só entra Série B/Segunda Divisão quando for Brasileirão Série B ou Bundesliga 2 -
-// o nome da competição vem genérico ("Segunda Divisão"/"Série B"), então quem distingue
-// a liga é o país, não a palavra "Brasileirão"/"Bundesliga" no texto
+// Ligas fora de escopo. O corte de verdade acontece no motor.ts (na raspagem,
+// antes do H2H); esta cópia serve pra esconder documento antigo que já esteja no
+// Firestore e ainda não foi regerado.
+// ⚠️ GÊMEA das listas em motor.ts. Mexeu lá, mexa aqui.
+const PAISES_REMOVIDOS = new Set([
+  'AZERBAIJAO',
+  'BIELORRUSSIA', 'BELARUS',
+  'BULGARIA',
+  'CAZAQUISTAO', 'KAZAQUISTAO',
+  'COREIA DO SUL',
+  'COSTA RICA',
+  'ESCOCIA',
+  'IRA', 'IRAO', 'IRAN',
+  'TCHEQUIA', 'REPUBLICA TCHECA',
+  'UCRANIA'
+]);
+
+const LIGAS_REMOVIDAS = [
+  /COPA DA RUSSIA/,
+  /COPA DA ESLOVAQUIA/,
+  /AFC CHAMPIONS LEAGUE TWO/,
+  /LIGA DOS CAMPEOES 2\b/,
+  /COPA CENTRO.?AMERICANA/,
+  /LIGA DOS CAMPEOES DA OFC/
+];
+
+const LIGAS_REMOVIDAS_POR_PAIS = {
+  'AFRICA DO SUL': [/PRIMEIRA DIVIS/],
+  'BOLIVIA': [/PRIMEIRA DIVIS/],
+  'ESTONIA': [/PRIMEIRA DIVIS/],
+  'IRLANDA': [/COPA DA IRLANDA/],
+  'JAPAO': [/PRIMEIRA DIVIS/],
+  'PAIS DE GALES': [/PRIMEIRA DIVIS/]
+};
+
+function semAcento(s) {
+  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim();
+}
+
 function isLigaBloqueada(pais, competicao) {
   const c = (competicao || '').toUpperCase();
   const p = (pais || '').toUpperCase();
+
+  const pSemAcento = semAcento(pais);
+  const cSemAcento = semAcento(competicao);
+  if (PAISES_REMOVIDOS.has(pSemAcento)) return true;
+  if (LIGAS_REMOVIDAS.some(re => re.test(cSemAcento))) return true;
+  const porPais = LIGAS_REMOVIDAS_POR_PAIS[pSemAcento];
+  if (porPais && porPais.some(re => re.test(cSemAcento))) return true;
+
+  // Só entra Série B/Segunda Divisão quando for Brasileirão Série B ou Bundesliga 2 -
+  // o nome da competição vem genérico ("Segunda Divisão"/"Série B"), então quem
+  // distingue a liga é o país, não a palavra "Brasileirão"/"Bundesliga" no texto
   const ehSerieBOuSegunda = c.includes('SEGUNDA DIVIS') || c.includes('SÉRIE B') || c.includes('SERIE B');
   if (!ehSerieBOuSegunda) return false;
   const ehBrasileiraoB = p.includes('BRASIL');
@@ -1713,6 +1992,16 @@ db.collection('configuracoes').doc('motor_status').onSnapshot(doc => {
     if(data.statusApiLive.includes('Erro')) liveBox.className = "text-xs font-mono text-red-400 font-bold block";
     else liveBox.className = "text-xs font-mono text-green-400 font-bold block";
   }
+
+  // Orçamento diário da API-Sports, publicado pelo governador de quota do motor.
+  const quotaBox = document.getElementById('txtStatusQuotaApiSports');
+  if(data.statusQuotaApiSports && quotaBox) {
+    quotaBox.innerText = data.statusQuotaApiSports;
+    const cor = data.statusQuotaApiSports.includes('congelada') ? 'text-red-400'
+              : data.statusQuotaApiSports.includes('espera') ? 'text-yellow-400'
+              : 'text-green-400';
+    quotaBox.className = `text-[10px] font-mono ${cor} font-bold block`;
+  }
 });
 
 function switchView(viewName) {
@@ -1734,7 +2023,6 @@ function switchView(viewName) {
 
 function salvarConfigMotor() {
   const id = document.getElementById('configTheoID').value;
-  const smToken = document.getElementById('configSportmonks').value;
   const afKey = document.getElementById('configApiFutebol').value;
   if(!id) return alert("Insira o ID!");
 
@@ -1745,7 +2033,7 @@ function salvarConfigMotor() {
   btn.classList.add('animate-pulse');
 
   db.collection('configuracoes').doc('motor').set({
-    theo_token: id, sportmonks_token: smToken, apifutebol_key: afKey, forcar_leitura: timestamp
+    theo_token: id, apifutebol_key: afKey, forcar_leitura: timestamp
   }, { merge: true }).then(() => {
     setTimeout(() => {
       btn.innerText = originalText;
@@ -1801,6 +2089,40 @@ function setFiltroStatus(status) {
   filtrarJogos();
 }
 
+// Bloco central do card: horário de início SEMPRE visível (antes só aparecia em
+// jogo que não começou - em LIVE/FT o placar ocupava o lugar dele), placar grande
+// e o tempo de jogo numa pílula colorida em vez do texto de 8px de antes.
+function blocoPlacarCentral(j, info) {
+  const hora = j.hora || '00:00';
+  const gc = j.golsCasa ?? 0;
+  const gf = j.golsFora ?? 0;
+
+  const corPilula = info.isHT
+    ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+    : 'bg-red-500/15 border-red-500/40 text-red-400';
+
+  const pilulaTempo = info.isLive
+    ? `<span class="px-2 py-[3px] rounded-full border ${corPilula} text-[11px] font-mono font-black leading-none whitespace-nowrap">${info.statusLabel}</span>`
+    : (info.isFT ? `<span class="px-2 py-[3px] rounded-full border border-white/10 bg-white/5 text-gray-400 text-[11px] font-mono font-black leading-none">FIM</span>` : '');
+
+  const miolo = (info.isLive || info.isFT)
+    ? `<span class="text-[22px] font-mono font-black text-white leading-none tracking-tight">${gc}<span class="text-gray-600 mx-0.5">-</span>${gf}</span>`
+    : `<span class="text-[14px] font-mono font-bold text-gray-500 leading-none">vs</span>`;
+
+  return `<span class="text-[10px] font-mono text-gray-500 leading-none">⏱ ${hora}</span>
+          ${miolo}
+          ${pilulaTempo}`;
+}
+
+// Versão de uma linha, pros cards recolhidos das abas Tips e Foguete. Também
+// carrega o horário de início quando o jogo já está rolando.
+function resumoPlacarInline(j, info) {
+  const hora = `<span class="text-gray-500">⏱ ${j.hora || '00:00'}</span>`;
+  if (!info.isLive && !info.isFT) return hora;
+  const cor = info.isLive ? (info.isHT ? 'text-amber-400' : 'text-red-400') : 'text-gray-500';
+  return `${hora} <span class="text-white text-[11px] font-black">${j.golsCasa ?? 0}-${j.golsFora ?? 0}</span> <span class="${cor} font-black">${info.isLive ? info.statusLabel : 'FIM'}</span>`;
+}
+
 function getMatchTimerAndStatus(j, now) {
   const st = (j.status || '').toUpperCase();
   if (['FT', 'FINALIZADA', 'FINALIZADO', 'ENCERRADO'].includes(st)) {
@@ -1833,13 +2155,22 @@ function getMatchTimerAndStatus(j, now) {
 
   const isOfficialLive = ['LIVE', 'HT', '1H', '2H', 'EM ANDAMENTO', 'AO VIVO'].includes(st);
 
+  // BUG CORRIGIDO ("1T 1'" em jogo que só começa mais tarde):
+  // o status LIVE gravado no banco entrava no ramo "ao vivo" SOZINHO, sem olhar o
+  // relógio. Com o início no futuro, diffMinutes era negativo e o clamp lá embaixo
+  // (`diffMinutes <= 0 ? 1`) imprimia "1T 1'" num jogo que nem tinha começado.
+  // Agora o relógio tem a palavra final: nenhum status faz um jogo ficar ao vivo
+  // antes da hora. A folga de 15 min cobre bola rolando adiantada e desvio de relógio.
+  const TOLERANCIA_ANTECIPACAO = 15;
+  const podeEstarAoVivo = diffMinutes >= -TOLERANCIA_ANTECIPACAO;
+
   // Intervalo do 2º tempo: 18 minutos (em vez dos 15 "de regulamento") pra dar folga
   // a acréscimo do 1T ou atraso no reinício - sem essa folga, um jogo com HT mais
   // longo virava "2T" cedo demais, com minuto errado.
   const INTERVALO_HT = 18;
   const FIM_JANELA_LIVE = 45 + INTERVALO_HT + 45 + 10; // 1T + intervalo + 2T + folga de acréscimo do 2T
 
-  if (isOfficialLive || (diffMinutes >= 0 && diffMinutes <= FIM_JANELA_LIVE)) {
+  if (podeEstarAoVivo && (isOfficialLive || (diffMinutes >= 0 && diffMinutes <= FIM_JANELA_LIVE))) {
     // O minuto raspado (j.minutoAoVivo) trava quando a API ao vivo para de atualizar
     // aquele jogo específico (ex.: fica preso em "9'" mesmo já perto do intervalo) -
     // o relógio calculado a partir do horário de início não depende de nenhuma API
@@ -1872,9 +2203,10 @@ function getMatchTimerAndStatus(j, now) {
       isLive: true,
       isFT: false,
       isNS: false,
+      isHT,
       diffMinutes,
       statusLabel: minText,
-      statusBadge: `<div class="flex items-center gap-1.5 ${badgeColor} font-black text-[10px] uppercase tracking-wider"><span class="w-2 h-2 rounded-full ${dotColor}"></span>${minText}</div>`,
+      statusBadge: `<div class="flex items-center gap-1.5 ${badgeColor} font-black text-[12px] uppercase tracking-wide"><span class="w-2 h-2 rounded-full ${dotColor}"></span>${minText}</div>`,
       tagTempo
     };
   } else if (diffMinutes < 0) {
@@ -1974,14 +2306,13 @@ async function excluirJogo(idJogo, nomeJogo) {
   }
 }
 
-// Botão manual (só aparece em jogos LIVE/FT) pra buscar o placar na Sportmonks.
-// BUG CORRIGIDO: a 1ª versão chamava a Sportmonks direto do navegador via fetch()
-// e sempre dava "Failed to fetch" - CORS. A API não libera chamada de browser,
-// só de servidor (é por isso que o motor.ts, rodando em Node, sempre funcionou).
-// Agora o navegador só grava um PEDIDO no Firestore (mesmo canal já usado pelo
-// botão "Salvar & Rodar" do Cockpit, campo forcar_leitura) - quem chama a
-// Sportmonks de verdade é o motor.ts, e a resposta volta pelo mesmo doc.
-async function buscarPlacarSportmonks(idJogo, mandante, visitante, btnId) {
+// Botão 🔄 dos cards LIVE/FT: força a atualização de placares AGORA.
+// O navegador não chama a API direto (CORS bloqueia) - grava um PEDIDO no Firestore
+// e o motor.ts responde no mesmo doc. Uma requisição `live=all` atualiza TODOS os
+// jogos do radar de uma vez, então clicar aqui não custa mais caro do que esperar
+// o ciclo: o débito reposiciona o relógio do ritmo adaptativo, e o próximo ciclo
+// automático passa a contar a partir deste clique.
+async function atualizarPlacaresAgora(idJogo, mandante, visitante, btnId) {
   const btn = document.getElementById(btnId);
   const original = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
@@ -1993,7 +2324,7 @@ async function buscarPlacarSportmonks(idJogo, mandante, visitante, btnId) {
     }, { merge: true });
 
     const resultado = await new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => { unsub(); reject(new Error('O motor não respondeu em 15s - confira se ele está rodando (veja o status no Cockpit).')); }, 15000);
+      const timeoutId = setTimeout(() => { unsub(); reject(new Error('O motor não respondeu em 30s - confira se ele está rodando (veja o status no Cockpit).')); }, 30000);
       const unsub = db.collection('configuracoes').doc('motor').onSnapshot(doc => {
         const r = doc.data()?.placarManualResultado;
         if (r && r.ts === ts) {
@@ -2005,7 +2336,10 @@ async function buscarPlacarSportmonks(idJogo, mandante, visitante, btnId) {
     });
 
     if (resultado.ok) {
-      mostrarToast(`✅ Placar via Sportmonks (${resultado.origem}): ${resultado.golsCasa}-${resultado.golsFora}`, true);
+      const placar = (resultado.golsCasa !== undefined)
+        ? `${resultado.golsCasa}-${resultado.golsFora}${resultado.minutoAoVivo ? ' (' + resultado.minutoAoVivo + ')' : ''} · `
+        : '';
+      mostrarToast(`✅ ${placar}${resultado.atualizados} jogo(s) atualizado(s)`, true);
     } else {
       mostrarToast(`⚠️ ${resultado.mensagem}`, false);
     }
@@ -2086,12 +2420,8 @@ function renderizarAgrupamento(jogos) {
               <span class="text-[10px] font-bold text-white truncate">${esc(nomeTimeSeguro(j.mandante, j.competicao))}</span>
           </div>
 
-          <div class="flex flex-col items-center shrink-0 px-1 min-w-[52px]">
-              ${info.isLive || info.isFT ?
-                `<span class="text-[13px] font-mono font-black text-white leading-none">${j.golsCasa ?? 0}-${j.golsFora ?? 0}</span>
-                 <span class="text-[8px] font-mono text-gray-500 mt-0.5">${info.isLive ? info.statusLabel : 'FIM'}</span>`
-              : `<span class="text-[12px] font-mono font-black text-white leading-none">${j.hora || '00:00'}</span>`
-              }
+          <div class="flex flex-col items-center justify-center shrink-0 px-1 min-w-[68px] gap-1">
+              ${blocoPlacarCentral(j, info)}
           </div>
 
           <div class="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
@@ -2106,7 +2436,7 @@ function renderizarAgrupamento(jogos) {
 
       <div class="flex gap-1 px-2.5 pb-2">
         <button onclick="abrirModalBank('${sId}')" class="flex-1 py-1.5 rounded-lg bg-[#2c2c2e] hover:bg-gray-700 text-blue-400 font-bold text-[9px] uppercase tracking-wide transition-colors">📊 Raio-X</button>
-        ${(info.isLive || info.isFT) ? `<button id="btn-sm-${sId}" onclick="buscarPlacarSportmonks('${j.id}', '${esc(j.mandante)}', '${esc(j.visitante)}', 'btn-sm-${sId}')" class="px-2.5 py-1.5 rounded-lg bg-blue-600/20 border border-blue-500/40 text-blue-400 text-[11px] active:scale-95 transition-all" title="Buscar placar no Sportmonks">🛰️</button>` : ''}
+        ${(info.isLive || info.isFT) ? `<button id="btn-sm-${sId}" onclick="atualizarPlacaresAgora('${j.id}', '${esc(j.mandante)}', '${esc(j.visitante)}', 'btn-sm-${sId}')" class="px-2.5 py-1.5 rounded-lg bg-blue-600/20 border border-blue-500/40 text-blue-400 text-[11px] active:scale-95 transition-all" title="Atualizar placares agora (1 requisição atualiza todos)">🔄</button>` : ''}
         <button onclick="abrirModalGols('${sId}')" class="px-2.5 py-1.5 rounded-lg bg-amber-600/20 border border-amber-500/40 text-amber-400 text-[11px] active:scale-95 transition-all" title="Quem fez o gol">⚽</button>
         <button onclick="prepararTradeDirect('${esc(j.mandante)} x ${esc(j.visitante)}', '${esc(j.competicao)}')" class="px-2.5 py-1.5 rounded-lg bg-green-600/20 border border-green-500/40 text-green-400 text-[11px] active:scale-95 transition-all" title="Registrar no Trade">✅</button>
       </div>
@@ -2726,9 +3056,7 @@ function renderizarAlavancagem() {
     }
 
     const idFoguete = "foguetejogo-" + sId;
-    const scoreResumo = info.isLive || info.isFT
-      ? `${j.golsCasa ?? 0}-${j.golsFora ?? 0} <span class="text-gray-500">${info.isLive ? info.statusLabel : 'FIM'}</span>`
-      : (j.hora || '00:00');
+    const scoreResumo = resumoPlacarInline(j, info);
 
     // Igual à aba Tips: card minimizado por padrão numa lista compacta, expande
     // ao clicar pra ver escudos, análise Gemini e o botão de Trade. 2 linhas com
@@ -2811,7 +3139,9 @@ function renderBadgeResultadoOp(op, j) {
   if (!jogoRealmenteFinalizado(j)) return '';
   const resultado = validarGreenRed(op, j);
   if (resultado === null) {
-    return `<span class="bg-gray-500/20 text-gray-400 border border-gray-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase shadow-sm">⏳ Aguard. Intervalo</span>`;
+    // Jogo acabou mas falta o recorte por tempo: ou o placar do intervalo não foi
+    // raspado, ou a API não passou nele / trouxe detalhe de gol incompleto.
+    return `<span class="bg-gray-500/20 text-gray-400 border border-gray-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase shadow-sm" title="Sem o recorte 1º/2º tempo: o placar do intervalo não foi capturado e o detalhe de gols da API não fecha com o placar final.">⏳ Sem dado do tempo</span>`;
   }
   return resultado
     ? `<span class="bg-green-500/20 text-green-400 border border-green-500/30 px-2.5 py-1 rounded-full text-[9px] font-black uppercase shadow-sm">🟢 GREEN (${j.golsCasa}-${j.golsFora})</span>`
@@ -2847,6 +3177,7 @@ function renderLinhaOportunidade(op, j, sId) {
       <div class="text-[9px] text-gray-500 mt-1 uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
         <span>📌 Fonte: ${esc(op.fonte.origem)}${tempoTag}</span>
         ${op.confirmadoPorFontes ? `<span class="text-emerald-400 font-bold">✅ Confirmado por ${op.confirmadoPorFontes} fontes</span>` : ''}
+        ${op.fundidas ? `<span class="text-sky-400 font-bold" title="Outras leituras do mesmo mercado foram absorvidas nesta tip">🔗 +${op.fundidas} leitura${op.fundidas > 1 ? 's' : ''} do mesmo mercado</span>` : ''}
       </div>
     </div>`;
 }
@@ -2991,9 +3322,7 @@ function renderizarTips() {
       const sId = cleanString(j.id || j.mandante + j.visitante);
       const info = getMatchTimerAndStatus(j, now);
       const idJogoTip = "tipjogo-" + sId;
-      const scoreResumo = info.isLive || info.isFT
-        ? `${j.golsCasa ?? 0}-${j.golsFora ?? 0} <span class="text-gray-500">${info.isLive ? info.statusLabel : 'FIM'}</span>`
-        : (j.hora || '00:00');
+      const scoreResumo = resumoPlacarInline(j, info);
 
       // Card do jogo minimizado por padrão (só o essencial pra escanear a lista
       // rápido) - clica pra expandir e ver escudos + todas as tips daquele jogo.
@@ -3029,10 +3358,12 @@ function renderizarTips() {
 
               <div class="flex flex-col items-center justify-center w-1/3 z-10 relative">
                   ${info.isLive || info.isFT ?
-                    `<div class="bg-black/50 text-white font-mono font-black text-2xl px-4 py-1.5 rounded-2xl border border-white/10 shadow-inner">${j.golsCasa ?? 0} - ${j.golsFora ?? 0}</div>
-                     <span class="text-[10px] font-mono font-bold text-gray-400 mt-1">${info.isLive ? info.statusLabel : (j.hora || '00:00')}</span>
-                     ${((j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)) > 0 ? `<span class="text-[9px] font-bold text-red-400 mt-0.5">🟥 ${(j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)}</span>` : ''}`
-                  : `<span class="text-3xl font-black font-mono text-white drop-shadow-md tracking-tighter">${j.hora || '00:00'}</span>`
+                    `<span class="text-[10px] font-mono text-gray-500 mb-1">⏱ Início ${j.hora || '00:00'}</span>
+                     <div class="bg-black/50 text-white font-mono font-black text-3xl px-5 py-2 rounded-2xl border border-white/10 shadow-inner tracking-tight">${j.golsCasa ?? 0} - ${j.golsFora ?? 0}</div>
+                     <span class="mt-1.5 px-2.5 py-1 rounded-full border text-[12px] font-mono font-black leading-none ${info.isLive ? (info.isHT ? 'bg-amber-500/15 border-amber-500/40 text-amber-400' : 'bg-red-500/15 border-red-500/40 text-red-400') : 'bg-white/5 border-white/10 text-gray-400'}">${info.isLive ? info.statusLabel : 'FIM'}</span>
+                     ${((j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)) > 0 ? `<span class="text-[9px] font-bold text-red-400 mt-1">🟥 ${(j.cartaoVermelhoCasa||0)+(j.cartaoVermelhoFora||0)}</span>` : ''}`
+                  : `<span class="text-[10px] font-mono text-gray-500 mb-1">⏱ Início</span>
+                     <span class="text-3xl font-black font-mono text-white drop-shadow-md tracking-tighter">${j.hora || '00:00'}</span>`
                   }
                   <span class="text-[9px] text-gray-500 font-bold mt-2 tracking-widest uppercase">${j.dataJogo}</span>
               </div>
@@ -3128,7 +3459,10 @@ function calcularMetricasOperacoes(ops) {
     if (isGreen) greens++;
     if (isRed) reds++;
     pl += (o.pl || 0);
-    const metodo = o.metodo || 'Outros';
+    // Rótulo canônico: entrada manual do Trade ("Over Limite FT") e tip do sistema
+    // ("OVER LIMITE FT") viravam duas linhas visualmente idênticas, e "Over Limite HT"
+    // ficava separado de "Over 0.5 HT" mesmo sendo o mesmo mercado.
+    const metodo = o.metodo ? rotuloCanonicoMetodo(o.metodo) : 'OUTROS';
     if (!porMetodoMap[metodo]) porMetodoMap[metodo] = { metodo, greens: 0, reds: 0 };
     if (isGreen) porMetodoMap[metodo].greens++;
     if (isRed) porMetodoMap[metodo].reds++;
@@ -3568,7 +3902,6 @@ window.onload = function() {
     if(doc.exists) {
       const d = doc.data();
       if (d.theo_token && document.getElementById('configTheoID')) document.getElementById('configTheoID').value = d.theo_token;
-      if (d.sportmonks_token && document.getElementById('configSportmonks')) document.getElementById('configSportmonks').value = d.sportmonks_token;
       if (d.apifutebol_key && document.getElementById('configApiFutebol')) document.getElementById('configApiFutebol').value = d.apifutebol_key;
     }
   });

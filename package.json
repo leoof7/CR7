@@ -1,10 +1,16 @@
 {
   "name": "cr",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Motor do CR7 SIUUU Terminal - raspagem, sync de placares ao vivo e escutas do Cockpit",
+  "main": "motor.ts",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "tsx motor.ts",
+    "dev": "tsx motor.ts",
+    "typecheck": "tsc --noEmit --skipLibCheck --target es2022 --module commonjs motor.ts",
+    "postinstall": "playwright install chromium"
   },
   "keywords": [],
   "author": "",
@@ -13,11 +19,11 @@
   "dependencies": {
     "firebase": "^12.17.1",
     "firebase-admin": "^14.2.0",
-    "playwright": "^1.62.1"
+    "playwright": "^1.62.1",
+    "tsx": "^4.23.5"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
-    "tsx": "^4.23.5",
     "typescript": "^7.0.2"
   }
 }
