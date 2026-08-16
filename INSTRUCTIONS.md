@@ -19,6 +19,10 @@
 ## 🚫 4. Filtro de Dados Rigoroso (Restrição Inviolável)
 - O motor já atua extraindo a hierarquia de países e limpando linhas indesejadas do Raio-X[cite: 1].
 - **REGRA DE OURO:** Sob nenhuma hipótese o sistema deve renderizar estatísticas de **Cartões**, **Escanteios (Cantos)** ou **Pressão** nas áreas de Tendências, Destaques ou Confronto Direto. Utilize filtros regex rigorosos para varrer esses itens.
+- **PAÍSES BLOQUEADOS POR INTEIRO (qualquer competição):** Azerbaijão, Bielorrússia/Belarus, Bulgária, Cazaquistão, Coreia do Sul, Costa Rica, Escócia, Irã, Tchequia, Ucrânia, Croácia, Áustria, Eslováquia, Finlândia, Hungria, Islândia, Noruega, Polônia, Suíça, Canadá, China, Eslovênia. Lista vive em `PAISES_REMOVIDOS`, duplicada em `motor.ts` (filtro na raspagem) e `index.html` (filtro no front). Editou um, edite o outro.
+- **SÉRIE B / SEGUNDA DIVISÃO:** só passa para Alemanha (Bundesliga 2) e Brasil (Brasileirão Série B). Qualquer outro país nessa divisão é cortado, mesmo que a raspagem venha limpa.
+- **SÉRIE C / TERCEIRA DIVISÃO:** nunca passa, de nenhum país — nem a do Brasil. Sem exceção.
+- Essas regras de Série B/C e de países bloqueados devem ser reforçadas em `ligaRemovida()` (`motor.ts`) e `isLigaBloqueada()` (`index.html`) sempre que um novo vazamento for identificado — as duas funções são gêmeas e precisam ficar sincronizadas.
 
 ## 🖥️ 5. O Dashboard e Módulos (`index.html`)[cite: 1]
 - **Radar Principal:** Filtros por data e status (Todos, Favoritos, Live, A Seguir, Finalizados). Agrupamento priorizando ligas do Brasil no topo[cite: 1]. Jogos de "ontem" forçam status FT, jogos futuros mudam de placar para "vs"[cite: 1].

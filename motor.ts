@@ -22,6 +22,10 @@ const DEBUG_RAIOX = false;
 const PORTA_MOTOR = Number(process.env.PORT) || 8080;
 const NO_RENDER = !!process.env.RENDER;
 
+// Navegador da raspagem em uso, se houver. Guardado no escopo do módulo pro
+// desligamento remoto conseguir fechá-lo em vez de deixar Chromium órfão.
+let navegadorAtivo: any = null;
+
 const servidor = http.createServer((req, res) => {
   const rota = (req.url || "/").split("?")[0];
 
@@ -31,8 +35,29 @@ const servidor = http.createServer((req, res) => {
     return;
   }
 
+  // Serve o dashboard em http://localhost:8080/app.
+  //
+  // POR QUE ISSO EXISTE: abrindo o index.html direto pelo disco, a página fica com
+  // origem `file://` (origem nula). O Firestore não completa a conexão a partir daí:
+  // os onSnapshot nunca entregam nada e os writes ficam pendurados pra sempre - foi
+  // o que travou o botão de desarme em "Desarmando..." e deixou o radar preso em
+  // "Sincronizando Firebase...", sem erro nenhum na tela. Servido por HTTP, mesmo
+  // que localhost, a origem passa a ser válida e tudo funciona.
+  if (req.method === "GET" && (rota === "/app" || rota === "/index.html")) {
+    fs.readFile(__dirname + "/index.html", (erro, conteudo) => {
+      if (erro) {
+        res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end("index.html não encontrado ao lado do motor.ts");
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(conteudo);
+    });
+    return;
+  }
+
   res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-  res.end("Rota não encontrada. Use GET / para o status do motor.");
+  res.end("Rota não encontrada. GET / = status do motor · GET /app = dashboard.");
 });
 
 // Sem este handler, porta ocupada virava um "Unhandled 'error' event" com stack
@@ -60,6 +85,12 @@ servidor.listen(PORTA_MOTOR, () => {
   console.log(`🌐 SERVIDOR HTTP PRONTO - escutando na porta ${PORTA_MOTOR}`);
   console.log(`   Ambiente: ${NO_RENDER ? "Render (nuvem)" : "local"}`);
   console.log(`   GET / responde "Motor CR7 Ativo e Rodando!"`);
+  if (!NO_RENDER) {
+    console.log("");
+    console.log(`   👉 ABRA O APP EM:  http://localhost:${PORTA_MOTOR}/app`);
+    console.log(`      (abrir o index.html direto do disco NÃO funciona - a origem`);
+    console.log(`       file:// impede o Firestore de conectar)`);
+  }
   console.log("=========================================================");
 });
 
@@ -153,7 +184,19 @@ const PAISES_REMOVIDOS = new Set([
   "ESCOCIA",
   "IRA", "IRAO", "IRAN",
   "TCHEQUIA", "REPUBLICA TCHECA",
-  "UCRANIA"
+  "UCRANIA",
+  "CROACIA",
+  "AUSTRIA",
+  "ESLOVAQUIA",
+  "FINLANDIA",
+  "HUNGRIA",
+  "ISLANDIA",
+  "NORUEGA",
+  "POLONIA",
+  "SUICA",
+  "CANADA",
+  "CHINA",
+  "ESLOVENIA"
 ]);
 
 // Competições cortadas em qualquer país. O \b depois do "2" impede pegar a
@@ -184,7 +227,17 @@ function ligaRemovida(pais: string, competicao: string) {
   if (PAISES_REMOVIDOS.has(p)) return true;
   if (LIGAS_REMOVIDAS.some(re => re.test(c))) return true;
   const porPais = LIGAS_REMOVIDAS_POR_PAIS[p];
-  return !!porPais && porPais.some(re => re.test(c));
+  if (porPais && porPais.some(re => re.test(c))) return true;
+
+  // Série B (Segunda Divisão) só passa pra Alemanha e Bundesliga 2 e Brasil/
+  // Brasileirão Série B - qualquer outro país nessa divisão é cortado.
+  const ehSegundaDivisao = c.includes("SEGUNDA DIVIS") || c.includes("SERIE B");
+  if (ehSegundaDivisao && !p.includes("BRASIL") && !p.includes("ALEMANHA")) return true;
+
+  // Série C (Terceira Divisão) nunca passa, nem a do Brasil - sem exceção.
+  if (c.includes("TERCEIRA DIVIS") || c.includes("SERIE C")) return true;
+
+  return false;
 }
 
 // =========================================================================
@@ -545,6 +598,8 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
   let browser;
   try {
     let execPath = undefined;
+    // (navegadorAtivo é preenchido logo após o launch, pro desligamento remoto
+    //  conseguir fechar o Chromium em vez de deixar processo órfão)
     if (process.platform !== "win32") {
       try {
         execPath = execSync("which chromium").toString().trim();
@@ -558,6 +613,7 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
     if (execPath) launchOptions.executablePath = execPath;
 
     browser = await chromium.launch(launchOptions);
+    navegadorAtivo = browser;
     const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
 
     // O tsx/esbuild compila as funções passadas ao page.evaluate com o helper
@@ -1305,6 +1361,7 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
     await atualizarStatusMotor({ status: "ERRO", mensagem: `Falha: ${(globalErr as Error).message}` });
   } finally {
     if (browser) await browser.close();
+    navegadorAtivo = null;
   }
 }
 
@@ -1365,23 +1422,20 @@ async function testarConexoesApis(pedido: any = {}) {
 }
 
 let lastTesteApisTs: number | null = null;
-setInterval(async () => {
-  try {
-    const doc = await db.collection("configuracoes").doc("motor").get();
-    const pedido = doc.data()?.testeApisPedido;
-    if (!pedido || !pedido.ts) return;
-    if (lastTesteApisTs === null) { lastTesteApisTs = pedido.ts; return; }
-    if (pedido.ts === lastTesteApisTs) return;
-    lastTesteApisTs = pedido.ts;
+async function tratarTesteApis(data: any, ehPrimeiraLeitura: boolean) {
+  const pedido = data?.testeApisPedido;
+  if (!pedido || !pedido.ts) return;
+  if (ehPrimeiraLeitura) { lastTesteApisTs = pedido.ts; return; }
+  if (pedido.ts === lastTesteApisTs) return;
+  lastTesteApisTs = pedido.ts;
 
-    console.log(`📡 Pedido de teste de conexões recebido do Cockpit.`);
-    const resultado = await testarConexoesApis(pedido);
-    resultado.linhas.forEach(l => console.log(`   └─ ${l.texto}`));
-    await db.collection("configuracoes").doc("motor").set({
-      testeApisResultado: { ts: pedido.ts, ...resultado }
-    }, { merge: true });
-  } catch (e) {}
-}, 3000);
+  console.log(`📡 Pedido de teste de conexões recebido do Cockpit.`);
+  const resultado = await testarConexoesApis(pedido);
+  resultado.linhas.forEach(l => console.log(`   └─ ${l.texto}`));
+  await db.collection("configuracoes").doc("motor").set({
+    testeApisResultado: { ts: pedido.ts, ...resultado }
+  }, { merge: true });
+}
 
 // Botão 🔄 dos cards: dispara o MESMO sync completo do ciclo automático. Uma
 // requisição atualiza todos os jogos do radar de uma vez, e o débito reposiciona
@@ -1389,66 +1443,149 @@ setInterval(async () => {
 // daqui. Depois do sync, relê o doc do jogo clicado pra devolver o placar dele
 // no toast.
 let lastPlacarManualTs: number | null = null;
-setInterval(async () => {
-  try {
-    const doc = await db.collection("configuracoes").doc("motor").get();
-    const pedido = doc.data()?.placarManualPedido;
-    if (!pedido || !pedido.ts) return;
-    if (lastPlacarManualTs === null) { lastPlacarManualTs = pedido.ts; return; }
-    if (pedido.ts === lastPlacarManualTs) return;
-    lastPlacarManualTs = pedido.ts;
+async function tratarPlacarManual(data: any, ehPrimeiraLeitura: boolean) {
+  const pedido = data?.placarManualPedido;
+  if (!pedido || !pedido.ts) return;
+  if (ehPrimeiraLeitura) { lastPlacarManualTs = pedido.ts; return; }
+  if (pedido.ts === lastPlacarManualTs) return;
+  lastPlacarManualTs = pedido.ts;
 
-    console.log(`🔄 Atualização manual pedida do card: ${pedido.mandante} x ${pedido.visitante}`);
-    const sync = await sincronizarAoVivoBackend(true);
-    console.log(`   └─ ${sync.mensagem}`);
+  console.log(`🔄 Atualização manual pedida do card: ${pedido.mandante} x ${pedido.visitante}`);
+  const sync = await sincronizarAoVivoBackend(true);
+  console.log(`   └─ ${sync.mensagem}`);
 
-    let placar: any = {};
-    if (sync.ok && pedido.idJogo) {
-      try {
-        const docJogo = await db.collection("jogos_ao_vivo").doc(String(pedido.idJogo)).get();
-        const d = docJogo.data();
-        if (d) placar = { golsCasa: d.golsCasa ?? 0, golsFora: d.golsFora ?? 0, minutoAoVivo: d.minutoAoVivo || "" };
-      } catch (e) {}
+  let placar: any = {};
+  if (sync.ok && pedido.idJogo) {
+    try {
+      const docJogo = await db.collection("jogos_ao_vivo").doc(String(pedido.idJogo)).get();
+      const d = docJogo.data();
+      if (d) placar = { golsCasa: d.golsCasa ?? 0, golsFora: d.golsFora ?? 0, minutoAoVivo: d.minutoAoVivo || "" };
+    } catch (e) {}
+  }
+
+  await db.collection("configuracoes").doc("motor").set({
+    placarManualResultado: {
+      idJogo: pedido.idJogo, ts: pedido.ts,
+      ok: sync.ok, mensagem: sync.mensagem, atualizados: sync.atualizados ?? 0,
+      quota: sync.quota || "", ...placar
     }
-
-    await db.collection("configuracoes").doc("motor").set({
-      placarManualResultado: {
-        idJogo: pedido.idJogo, ts: pedido.ts,
-        ok: sync.ok, mensagem: sync.mensagem, atualizados: sync.atualizados ?? 0,
-        quota: sync.quota || "", ...placar
-      }
-    }, { merge: true });
-  } catch (e) {}
-}, 3000);
+  }, { merge: true });
+}
 
 let lastTriggerTime: number | null = null;
-setInterval(async () => {
+async function tratarDisparoVarredura(data: any, ehPrimeiraLeitura: boolean) {
+  if (ehPrimeiraLeitura) {
+    lastTriggerTime = data?.forcar_leitura || 0;
+    return;
+  }
+  if (data?.forcar_leitura && data.forcar_leitura !== lastTriggerTime) {
+    lastTriggerTime = data.forcar_leitura;
+    console.log("🔧 Disparo manual recebido pelo Cockpit!");
+    await rodarMotorCompleto(data.theo_token);
+  }
+}
+
+// =========================================================================
+// DESLIGAMENTO REMOTO (botão "Desarmar Motor" do Cockpit)
+// =========================================================================
+// O navegador não consegue matar um processo da máquina, então usa o mesmo canal
+// de sempre: grava `desligar_pedido` no Firestore e o motor se encerra sozinho.
+// Resolve o "porta 8080 já está em uso" - dá pra desarmar o motor velho pela tela
+// e subir um novo sem caçar PID no PowerShell.
+let desligando = false;
+
+async function desligarMotor(motivo: string) {
+  if (desligando) return;
+  desligando = true;
+
+  console.log("=========================================================");
+  console.log(`🛑 DESLIGAMENTO PEDIDO PELO COCKPIT (${motivo})`);
+  console.log("=========================================================");
+
+  // Fecha o Chromium primeiro: process.exit() sozinho deixaria o navegador órfão
+  // segurando memória (e, no Render, contando pro limite da instância).
+  if (navegadorAtivo) {
+    try { console.log("   ├─ fechando o navegador da raspagem..."); await navegadorAtivo.close(); }
+    catch (e) {}
+  }
+
   try {
-    const doc = await db.collection("configuracoes").doc("motor").get();
-    if (doc.exists) {
-      const data = doc.data();
-      if (lastTriggerTime === null) {
-        lastTriggerTime = data?.forcar_leitura || 0;
-        return;
-      }
-      if (data?.forcar_leitura && data.forcar_leitura !== lastTriggerTime) {
-        lastTriggerTime = data.forcar_leitura;
-        console.log("🔧 Disparo manual recebido pelo Cockpit!");
-        await rodarMotorCompleto(data.theo_token);
-      }
-    }
+    await atualizarStatusMotor({
+      status: "DESLIGADO",
+      mensagem: `Motor desarmado pelo Cockpit em ${new Date().toLocaleTimeString("pt-BR")}.`,
+      heartbeat: 0
+    });
   } catch (e) {}
-}, 3000);
+
+  console.log("   ├─ liberando a porta " + PORTA_MOTOR + "...");
+  try { servidor.close(); } catch (e) {}
+  console.log("   └─ até logo. Rode `npx tsx motor.ts` pra subir de novo.\n");
+
+  setTimeout(() => process.exit(0), 400);
+}
+
+let lastDesligarTs: number | null = null;
+async function tratarDesligamento(data: any, ehPrimeiraLeitura: boolean) {
+  const ts = data?.desligar_pedido;
+  if (!ts) return;
+  // Na primeira leitura só memoriza: senão um motor novo leria o pedido antigo e
+  // se mataria no arranque, que é exatamente o oposto do que o botão serve.
+  //
+  // A baliza é SÓ `ehPrimeiraLeitura`. Testar `lastDesligarTs === null` junto
+  // parecia inofensivo mas engolia o primeiro clique de verdade: no snapshot
+  // inicial o campo ainda não existe, o `if (!ts) return` sai antes de gravar a
+  // baliza, e aí o primeiro pedido real chegava com a variável ainda em null -
+  // era tratado como baliza em vez de comando.
+  if (ehPrimeiraLeitura) { lastDesligarTs = ts; return; }
+  if (ts === lastDesligarTs) return;
+  lastDesligarTs = ts;
+  await desligarMotor("pedido às " + new Date(Number(ts)).toLocaleTimeString("pt-BR"));
+}
+
+// =========================================================================
+// ESCUTA ÚNICA DO COCKPIT
+// =========================================================================
+// Antes eram TRÊS setInterval de 3s, cada um fazendo seu próprio .get() no mesmo
+// documento: 1 leitura por segundo, ~86 mil leituras/dia - acima do limite free do
+// Firestore (50 mil/dia) só de ficar parado esperando. Um onSnapshot recebe as
+// mudanças empurradas pelo servidor: custa leitura quando algo muda, não a cada
+// tique. De quebra, os botões do Cockpit respondem na hora em vez de esperar até 3s.
+let primeiraLeituraCockpit = true;
+db.collection("configuracoes").doc("motor").onSnapshot(async (doc) => {
+  const data = doc.data() || {};
+  const ehPrimeira = primeiraLeituraCockpit;
+  primeiraLeituraCockpit = false;
+
+  // Desligamento vem primeiro: se o pedido é pra parar, não faz sentido começar
+  // uma varredura no mesmo evento.
+  try { await tratarDesligamento(data, ehPrimeira); } catch (e) {}
+  if (desligando) return;
+
+  try { await tratarTesteApis(data, ehPrimeira); } catch (e) {}
+  try { await tratarPlacarManual(data, ehPrimeira); } catch (e) {}
+  try { await tratarDisparoVarredura(data, ehPrimeira); } catch (e) {}
+}, (err) => {
+  console.error(`⚠️ Escuta do Cockpit caiu: ${err.message}`);
+});
+
+// Batimento: prova de vida que o Cockpit lê pra dizer se existe motor no ar.
+// Sem isso não dá pra saber, olhando o app, se o clique vai ser atendido por
+// alguém ou vai ficar parado na caixa de correio.
+setInterval(() => {
+  if (desligando) return;
+  atualizarStatusMotor({ heartbeat: Date.now(), ambiente: NO_RENDER ? "Render" : "local" });
+}, 20000);
+atualizarStatusMotor({ heartbeat: Date.now(), ambiente: NO_RENDER ? "Render" : "local" });
 
 // =========================================================================
 // ARRANQUE
 // =========================================================================
 console.log("=========================================================");
-console.log("⚙️ MOTOR FIRESTORE PRONTO - escutas ativas:");
+console.log("⚙️ MOTOR FIRESTORE PRONTO");
 console.log(`   • Placares ao vivo (API-Sports) ....... a cada 5 min`);
-console.log(`   • Pedido de atualização do card 🔄 .... a cada 3s`);
-console.log(`   • Teste de conexões do Cockpit ........ a cada 3s`);
-console.log(`   • Disparo "Salvar & Rodar" do Cockpit . a cada 3s`);
+console.log(`   • Escuta do Cockpit (tempo real) ...... varredura, teste,`);
+console.log(`     atualização de placar e desarme ..... chegam na hora`);
+console.log(`   • Batimento pro app saber que estou vivo  a cada 20s`);
 console.log("=========================================================\n");
 
 // A raspagem com Playwright é a parte pesada (Chromium + Node). Numa instância

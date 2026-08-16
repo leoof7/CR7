@@ -1,10 +1,10 @@
-Jogo: Platense x Coquimbo Unido
+Jogo: Al Hilal x Al Faisaly
 
 <div class="pg-cardtab-3-nav">
 
                 <button class="pg-cardtab" data-tab="pg-dsmp-home">
                     <div class="pg-cardtab-team">
-                        <img src="https://clube.theoborges.com/team-image-proxy?url=https%3A%2F%2Fcdn.footystats.org%2Fimg%2Fteams%2Fargentina-ca-platense.png" class="pg-cardtab-team-logo">
+                        <img src="https://clube.theoborges.com/team-image-proxy?url=https%3A%2F%2Fcdn.footystats.org%2Fimg%2Fteams%2Fsaudi-arabia-al-hilal-fc-riyadh.png" class="pg-cardtab-team-logo">
                     </div>
                 </button>
 
@@ -14,7 +14,7 @@ Jogo: Platense x Coquimbo Unido
 
                 <button class="pg-cardtab" data-tab="pg-dsmp-away">
                     <div class="pg-cardtab-team">
-                        <img src="https://clube.theoborges.com/team-image-proxy?url=https%3A%2F%2Fcdn.footystats.org%2Fimg%2Fteams%2Fchile-cd-coquimbo-unido.png" class="pg-cardtab-team-logo">
+                        <img src="https://clube.theoborges.com/team-image-proxy?url=https%3A%2F%2Fcdn.footystats.org%2Fimg%2Fteams%2Fsaudi-arabia-al-faisaly-fc.png" class="pg-cardtab-team-logo">
                     </div>
                 </button>
             </div>
