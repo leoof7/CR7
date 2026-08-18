@@ -196,7 +196,6 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
   <span class="text-green-400">🟢 <b id="cntGreensDay">0</b></span>
   <span class="text-red-400">🔴 <b id="cntRedsDay">0</b></span>
   <span class="text-blue-400">🎯 <b id="cntAssertDay">0%</b></span>
-  <button id="btnSyncTipsLivro" onclick="sincronizarTipsNoLivro()" class="text-gray-500 hover:text-blue-400 bg-transparent text-[9px] uppercase tracking-wider font-bold">🔄 Sync</button>
 </div>
 
 <div id="listaTips" class="space-y-4"></div>
@@ -388,13 +387,19 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 <span id="txtStatusApiLive" class="text-xs font-mono text-green-400 font-bold block">Aguardando ping do backend...</span>
 </div>
 
-<!-- Prova de vida: sem isso não dá pra saber, olhando o app, se existe motor no ar
-     pra atender o clique ou se o pedido vai ficar parado no Firestore. -->
+<!-- Prova de vida: sem isso não dá pra saber, olhando o app, se existe motor no ar. -->
 <div class="mt-3 bg-gray-100 dark:bg-black/40 p-3 rounded-2xl">
 <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider block mb-1">Existe motor no ar?</span>
 <span id="txtBatimentoMotor" class="text-xs font-mono text-gray-400 font-bold block">Verificando...</span>
-<button id="btnDesarmarMotor" onclick="desarmarMotor()" class="w-full mt-3 bg-red-600/15 hover:bg-red-600/25 text-red-400 border border-red-500/40 font-bold py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-colors">🛑 Desarmar Motor (liberar a porta)</button>
-<p class="text-[9px] text-gray-500 mt-2">Encerra o motor que está rodando e libera a porta 8080. Use quando o terminal acusar "porta já está em uso" — depois suba um novo com <span class="font-mono">npx tsx motor.ts</span>.</p>
+</div>
+</div>
+
+<!-- HISTÓRICO DOS CICLOS AGENDADOS (06h/16h/21h/01h, sem clique nenhum) -->
+<div class="apple-card p-5 rounded-3xl border border-blue-500/20 shadow-md">
+<h3 class="text-xs font-black text-blue-500 uppercase tracking-widest mb-3">⏰ Ciclos Agendados (06h · 16h · 21h · 01h)</h3>
+<p class="text-[9px] text-gray-500 mb-3">Roda sozinho, sem precisar de clique. Aqui embaixo, só o registro de início/fim de cada horário.</p>
+<div id="listaLogsAgendados" class="space-y-1.5">
+  <p class="text-[10px] text-gray-500 text-center py-2">Nenhum ciclo agendado registrado ainda.</p>
 </div>
 </div>
 
@@ -429,7 +434,7 @@ body.dark-theme input, body.dark-theme select, body.dark-theme textarea { backgr
 <label class="block text-gray-500 text-[10px] uppercase font-bold mb-1">ID da Planilha Theo</label>
 <div class="flex gap-2">
 <input type="text" id="configTheoID" placeholder="Ex: 18cb78582e" value="afba4f6a53" class="w-full p-3 font-mono text-xs border border-gray-200 dark:border-white/10 rounded-xl">
-<button onclick="salvarConfigMotor()" id="btnSalvarCockpit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors">Salvar & Rodar</button>
+<button onclick="salvarConfigMotor()" id="btnSalvarCockpit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors">Salvar</button>
 </div>
 </div>
 <div class="pt-2 border-t border-black/5 dark:border-white/10">
@@ -2006,6 +2011,10 @@ db.collection('jogos_ao_vivo').onSnapshot(snapshot => {
       filtrarJogos();
       if(!document.getElementById('view-tips').classList.contains('hidden-view')) renderizarTips();
       if(!document.getElementById('view-projetos').classList.contains('hidden-view')) renderizarAlavancagem();
+      // Varredura completa (não só o gatilho de FIM DE JOGO do alertarEventosAoVivo) -
+      // pega qualquer tip finalizada que tenha escapado do gatilho pontual, sem
+      // precisar de botão manual.
+      sincronizarTipsNoLivro();
   }, 600);
 });
 
@@ -2042,8 +2051,16 @@ db.collection('configuracoes').doc('motor_status').onSnapshot(doc => {
     }, 1000);
   } else {
     if(timerInterval) clearInterval(timerInterval);
-    badge.innerText = '🟢 CONCLUÍDO';
-    badge.className = 'bg-green-600 text-white px-3 py-1 rounded-full text-[9px] font-mono font-bold uppercase';
+    if (data.status === 'ERRO') {
+      badge.innerText = '❌ ERRO';
+      badge.className = 'bg-red-600 text-white px-3 py-1 rounded-full text-[9px] font-mono font-bold uppercase';
+    } else if (data.status === 'CANCELADO') {
+      badge.innerText = '🟡 CANCELADO';
+      badge.className = 'bg-amber-600 text-white px-3 py-1 rounded-full text-[9px] font-mono font-bold uppercase';
+    } else {
+      badge.innerText = '🟢 CONCLUÍDO';
+      badge.className = 'bg-green-600 text-white px-3 py-1 rounded-full text-[9px] font-mono font-bold uppercase';
+    }
     details.innerText = data.mensagem || 'Motor em repouso.';
     if(data.duracaoMinutos && timerEl) timerEl.innerText = `${data.duracaoMinutos} min`;
   }
@@ -2068,7 +2085,40 @@ db.collection('configuracoes').doc('motor_status').onSnapshot(doc => {
               : 'text-green-400';
     quotaBox.className = `text-[10px] font-mono ${cor} font-bold block`;
   }
+
+  renderizarLogsAgendados(data.logsAgendados);
 });
+
+// Histórico dos ciclos agendados (06h/16h/21h/01h) - substitui os botões manuais
+// de rodar/parar por uma lista só de leitura de início/fim de cada horário.
+function renderizarLogsAgendados(logs) {
+  const container = document.getElementById('listaLogsAgendados');
+  if (!container) return;
+  if (!Array.isArray(logs) || logs.length === 0) {
+    container.innerHTML = '<p class="text-[10px] text-gray-500 text-center py-2">Nenhum ciclo agendado registrado ainda.</p>';
+    return;
+  }
+
+  const fmtHora = (ts) => ts ? new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+  const STATUS_INFO = {
+    EXECUTANDO: { icone: '🔴', cor: 'text-red-400' },
+    CONCLUÍDO: { icone: '🟢', cor: 'text-green-400' },
+    CANCELADO: { icone: '🟡', cor: 'text-amber-400' },
+    ERRO: { icone: '❌', cor: 'text-red-500' }
+  };
+
+  container.innerHTML = [...logs].reverse().map(log => {
+    const info = STATUS_INFO[log.status] || { icone: '⚪', cor: 'text-gray-400' };
+    const duracao = log.fim ? `${Math.max(1, Math.round((log.fim - log.inicio) / 60000))} min` : 'em andamento...';
+    return `<div class="flex items-center justify-between bg-gray-100 dark:bg-black/40 px-3 py-2 rounded-xl text-[10px] font-mono">
+      <div class="flex items-center gap-2">
+        <span class="${info.cor} font-bold">${info.icone} ${esc(log.horario)}</span>
+        <span class="text-gray-500">${esc(log.data)}</span>
+      </div>
+      <div class="text-gray-400">${fmtHora(log.inicio)} → ${fmtHora(log.fim)} <span class="text-gray-500">(${duracao})</span></div>
+    </div>`;
+  }).join('');
+}
 
 function switchView(viewName) {
   ['radar', 'tips', 'projetos', 'diario', 'gestao', 'config'].forEach(v => {
@@ -2088,17 +2138,16 @@ function switchView(viewName) {
 }
 
 // =========================================================================
-// PROVA DE VIDA DO MOTOR + DESARME
+// PROVA DE VIDA DO MOTOR
 // =========================================================================
-// O motor grava `heartbeat` a cada 20s. Se o último batimento passou de 60s, não
-// tem ninguém atendendo - e clicar em "Salvar & Rodar" só deixaria o pedido parado
-// no Firestore sem erro nenhum na tela, que foi o que já aconteceu antes.
+// O motor grava `heartbeat` a cada 20s - só pra saber, olhando o app, se existe
+// motor no ar. Sem botão de desarmar: o motor agora só recebe comando do
+// agendamento interno dele mesmo (ver motor.ts), não tem mais nada pra parar daqui.
 let ultimoBatimentoMotor = 0;
 let ambienteMotor = '';
 
 function atualizarBatimentoMotor() {
   const el = document.getElementById('txtBatimentoMotor');
-  const btn = document.getElementById('btnDesarmarMotor');
   if (!el) return;
 
   if (!ultimoBatimentoMotor) {
@@ -2109,7 +2158,6 @@ function atualizarBatimentoMotor() {
       ? '⚠️ Abra em http://localhost:8080/app - como arquivo o Firestore não conecta'
       : '🔴 Nenhum motor detectado - suba com npx tsx motor.ts';
     el.className = 'text-xs font-mono text-red-400 font-bold block';
-    if (btn) btn.disabled = true;
     return;
   }
 
@@ -2119,78 +2167,28 @@ function atualizarBatimentoMotor() {
   if (seg < 60) {
     el.innerText = `🟢 Motor no ar${ondeRoda} - último sinal há ${seg}s`;
     el.className = 'text-xs font-mono text-green-400 font-bold block';
-    if (btn) btn.disabled = false;
   } else {
     const min = Math.round(seg / 60);
     el.innerText = `🔴 Motor parado - último sinal há ${min} min${ondeRoda}`;
     el.className = 'text-xs font-mono text-red-400 font-bold block';
-    if (btn) btn.disabled = true;
   }
 }
 setInterval(atualizarBatimentoMotor, 5000);
 
-// O navegador não mata processo da máquina - grava o pedido no Firestore e quem se
-// encerra é o próprio motor (fechando o Chromium e liberando a porta antes de sair).
-async function desarmarMotor() {
-  const btn = document.getElementById('btnDesarmarMotor');
-  const original = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Desarmando...'; }
-
-  const batimentoAntes = ultimoBatimentoMotor;
-  try {
-    // Timeout no write: sem ele o botão ficava eternamente em "Desarmando...".
-    // Um write do Firestore não rejeita quando a conexão não fecha - ele fica
-    // pendente pra sempre, e o `finally` nunca rodava. Acontece ao abrir o app
-    // como file:// (origem nula), onde o Firestore não conecta.
-    await Promise.race([
-      db.collection('configuracoes').doc('motor').set({ desligar_pedido: Date.now() }, { merge: true }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error(
-        'Sem resposta do Firestore em 10s. Você abriu o app como arquivo (file://)? Use http://localhost:8080/app'
-      )), 10000))
-    ]);
-    mostrarToast('🛑 Pedido enviado - aguardando o motor encerrar...', true);
-
-    // Confirma pelo silêncio: o motor para de bater assim que sai. Se em 15s o
-    // batimento não envelheceu, ele não recebeu (ou nem estava rodando).
-    const encerrou = await new Promise(resolve => {
-      let tentativas = 0;
-      const t = setInterval(() => {
-        tentativas++;
-        const parou = ultimoBatimentoMotor === batimentoAntes && (Date.now() - ultimoBatimentoMotor) > 25000;
-        if (parou) { clearInterval(t); resolve(true); }
-        if (tentativas >= 15) { clearInterval(t); resolve(false); }
-      }, 1000);
-    });
-
-    if (encerrou) mostrarToast('✅ Motor desarmado. Porta liberada - pode subir outro.', true);
-    else mostrarToast('⚠️ Sem confirmação em 15s. Confira o terminal do motor.', false);
-  } catch (e) {
-    mostrarToast(`❌ Falha ao pedir o desarme: ${e.message}`, false);
-  } finally {
-    if (btn) { btn.innerHTML = original; }
-    atualizarBatimentoMotor();
-  }
-}
-
+// O token da planilha Theo muda todo dia - o usuário atualiza aqui manualmente, e o
+// motor lê sozinho o que estiver salvo aqui a cada ciclo agendado (sem precisar de
+// clique pra rodar - só salva o valor pro próximo horário automático usar).
 function salvarConfigMotor() {
   const id = document.getElementById('configTheoID').value;
   const afKey = document.getElementById('configApiFutebol').value;
   if(!id) return alert("Insira o ID!");
 
-  const timestamp = new Date().getTime();
-  const btn = document.getElementById('btnSalvarCockpit');
-  const originalText = btn.innerText;
-  btn.innerText = "DESPERTANDO...";
-  btn.classList.add('animate-pulse');
-
   db.collection('configuracoes').doc('motor').set({
-    theo_token: id, apifutebol_key: afKey, forcar_leitura: timestamp
+    theo_token: id, apifutebol_key: afKey
   }, { merge: true }).then(() => {
-    setTimeout(() => {
-      btn.innerText = originalText;
-      btn.classList.remove('animate-pulse');
-      mostrarToast("Gatilho ativado!", false);
-    }, 15000);
+    mostrarToast("✅ Configuração salva.", true);
+  }).catch(e => {
+    mostrarToast(`❌ Falha ao salvar: ${e.message}`, false);
   });
 }
 
@@ -3377,11 +3375,10 @@ function renderLinhaOportunidade(op, j, sId) {
 // Percorre TODOS os jogos já finalizados (não só os do dia selecionado) e grava
 // no Livro cada tip validável (validarGreenRed já existe e resolve contra o
 // placar real - aqui só persiste o que ele já calcula, sem inventar lógica nova).
-// Doc id determinístico (tips_<sId>_<método>) faz o re-clique corrigir em vez de duplicar.
+// Doc id determinístico (tips_<sId>_<método>) faz rodar de novo corrigir em vez de
+// duplicar - por isso dá pra chamar automaticamente toda vez que os placares mudam
+// (ver debounce no onSnapshot de jogos_ao_vivo), sem botão manual nenhum.
 async function sincronizarTipsNoLivro() {
-  const btn = document.getElementById('btnSyncTipsLivro');
-  const textoOriginal = btn ? btn.innerText : '';
-  if (btn) { btn.disabled = true; btn.innerText = 'SINCRONIZANDO...'; }
   try {
     const writes = [];
     todosOsJogos.forEach(j => {
@@ -3414,6 +3411,8 @@ async function sincronizarTipsNoLivro() {
       });
     });
 
+    if (writes.length === 0) return;
+
     // Firestore aceita no máximo 500 operações por batch.
     for (let i = 0; i < writes.length; i += 450) {
       const batch = db.batch();
@@ -3421,11 +3420,9 @@ async function sincronizarTipsNoLivro() {
       await batch.commit();
     }
 
-    mostrarToast(`✅ ${writes.length} tip(s) sincronizada(s) ao Livro.`, true);
+    console.log(`🔄 ${writes.length} tip(s) sincronizada(s) ao Livro automaticamente.`);
   } catch (e) {
-    mostrarToast(`❌ Erro ao sincronizar: ${e.message}`, false);
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerText = textoOriginal; }
+    console.error('⚠️ Falha ao sincronizar tips ao Livro:', e.message);
   }
 }
 
@@ -3676,21 +3673,165 @@ function calcularMetricasOperacoes(ops) {
   const porMetodo = Object.values(porMetodoMap).map(m => {
     const t = m.greens + m.reds;
     return { ...m, total: t, winRate: t > 0 ? Math.round((m.greens / t) * 100) : 0 };
-  }).sort((a, b) => b.total - a.total);
+  }).sort((a, b) => b.winRate - a.winRate || b.total - a.total);
   return { greens, reds, total, winRate, pl, porMetodo };
 }
 
-function renderListaMetodos(porMetodo, vazioMsg) {
+// `ops` + `idPrefix` são opcionais: só quando os dois vêm preenchidos a linha vira
+// clicável, abrindo embaixo dela o gráfico de evolução + calendário daquele método
+// (ver toggleEvolucaoMetodo). Times e ligas continuam chamando sem esses dois
+// argumentos - a régua de evolução por stake fixa é só pra método (pedido do usuário).
+function renderListaMetodos(porMetodo, vazioMsg, ops, idPrefix) {
   if (!porMetodo.length) return `<div class="text-center text-gray-500 text-[10px] py-4">${vazioMsg}</div>`;
-  return porMetodo.map(m => `
-    <div class="flex items-center justify-between bg-gray-50 dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-3 rounded-2xl">
-      <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300">${esc(m.metodo)}</span>
+  const interativo = Array.isArray(ops) && !!idPrefix;
+  if (interativo) {
+    window.metodoOpsBank = window.metodoOpsBank || {};
+    window.metodoOpsBank[idPrefix] = ops;
+  }
+  return porMetodo.map(m => {
+    const rowId = interativo ? 'metodo-' + cleanString(idPrefix + '-' + m.metodo) : null;
+    const header = `
+    <div class="flex items-center justify-between bg-gray-50 dark:bg-[#1c1c1e] border border-black/5 dark:border-white/5 p-3 rounded-2xl${interativo ? ' cursor-pointer' : ''}"${interativo ? ` onclick="toggleEvolucaoMetodo('${rowId}')"` : ''}>
+      <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300">${esc(m.metodo)}${interativo ? ' <span class="text-gray-500">📈</span>' : ''}</span>
       <div class="flex items-center gap-3">
         <span class="text-[10px] font-mono text-green-500 font-bold">🟢 ${m.greens}</span>
         <span class="text-[10px] font-mono text-red-500 font-bold">🔴 ${m.reds}</span>
         <span class="text-[10px] font-mono font-black ${m.winRate >= 50 ? 'text-blue-500' : 'text-gray-400'}">${m.winRate}%</span>
       </div>
-    </div>`).join('');
+    </div>`;
+    if (!interativo) return header;
+    return `<div>${header}<div id="${rowId}" class="hidden mt-1.5 bg-gray-50 dark:bg-[#161616] border border-black/5 dark:border-white/5 rounded-2xl p-3" data-metodo="${esc(m.metodo)}" data-bank="${esc(idPrefix)}"></div></div>`;
+  }).join('');
+}
+
+// Stake fixa simulada de $20/operação (não é o `pl` real gravado) - régua padrão
+// pra comparar a evolução de qualquer método, já que Trade usa stake real variável
+// e Tips/Foguete simulam com valor próprio (25.00 hoje).
+function plSimulado20(op) {
+  if (op.status === 'GREEN') return 20;
+  if (op.status === 'RED') return -20;
+  return 0;
+}
+
+// Evolução acumulada (stake $20) das operações de um método, em ordem cronológica.
+function evolucaoMetodo(ops, metodoNome) {
+  const doMetodo = (ops || [])
+    .filter(o => (o.metodo ? rotuloCanonicoMetodo(o.metodo) : 'OUTROS') === metodoNome)
+    .filter(o => o.status === 'GREEN' || o.status === 'RED')
+    .sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')));
+
+  let acumulado = 0;
+  return doMetodo.map(o => {
+    acumulado += plSimulado20(o);
+    return { data: o.data, jogo: o.jogo, status: o.status, acumulado };
+  });
+}
+
+// Gráfico de linha/área da evolução acumulada, contra uma linha de base zero -
+// cada trecho colorido pelo sinal do ponto de chegada (verde acima, vermelho
+// abaixo), não uma cor única pro gráfico inteiro. Reaproveita o verde/vermelho já
+// usado em todo o app pra GREEN/RED, sem paleta nova.
+function renderGraficoEvolucao(pontos) {
+  if (pontos.length < 2) {
+    return '<div class="text-center text-gray-500 text-[10px] py-6">Poucas operações resolvidas ainda pra montar o gráfico.</div>';
+  }
+
+  const W = 300, H = 100, PAD = 8;
+  const valores = pontos.map(p => p.acumulado);
+  const min = Math.min(0, ...valores);
+  const max = Math.max(0, ...valores);
+  const range = (max - min) || 1;
+
+  const x = (i) => PAD + (i / (pontos.length - 1)) * (W - PAD * 2);
+  const y = (v) => H - PAD - ((v - min) / range) * (H - PAD * 2);
+  const yZero = y(0);
+
+  let areaHtml = '', segmentosHtml = '';
+  for (let i = 1; i < pontos.length; i++) {
+    const x1 = x(i - 1), y1 = y(pontos[i - 1].acumulado);
+    const x2 = x(i), y2 = y(pontos[i].acumulado);
+    const cor = pontos[i].acumulado >= 0 ? '#22c55e' : '#ef4444';
+    const titulo = `Op ${i + 1}: ${esc(pontos[i].jogo || '')} · ${esc(pontos[i].data || '')} · ${pontos[i].status} · Acumulado R$ ${pontos[i].acumulado.toFixed(2)}`;
+    areaHtml += `<polygon points="${x1.toFixed(1)},${yZero.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)} ${x2.toFixed(1)},${yZero.toFixed(1)}" fill="${cor}" fill-opacity="0.1"></polygon>`;
+    segmentosHtml += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${cor}" stroke-width="2" stroke-linecap="round"><title>${titulo}</title></line>`;
+  }
+
+  const ultimo = pontos[pontos.length - 1];
+  const corPonto = ultimo.acumulado >= 0 ? '#22c55e' : '#ef4444';
+  const xUltimo = x(pontos.length - 1), yUltimo = y(ultimo.acumulado);
+
+  return `
+    <svg viewBox="0 0 ${W} ${H}" class="w-full h-24" preserveAspectRatio="none">
+      <line x1="${PAD}" y1="${yZero.toFixed(1)}" x2="${W - PAD}" y2="${yZero.toFixed(1)}" stroke="#6b7280" stroke-width="1" stroke-opacity="0.4"></line>
+      ${areaHtml}
+      ${segmentosHtml}
+      <circle cx="${xUltimo.toFixed(1)}" cy="${yUltimo.toFixed(1)}" r="4" fill="${corPonto}" stroke="#18181b" stroke-width="2"><title>Total acumulado: R$ ${ultimo.acumulado.toFixed(2)}</title></circle>
+    </svg>`;
+}
+
+// Calendário do mês atual (mesmo visual do calendário fixo da aba Visão), mas
+// colorindo os dias só com o resultado (stake $20) de UM método - o "filtro" é
+// simplesmente qual linha de método foi clicada, sem seletor separado.
+function renderCalendarioMetodo(pontos) {
+  const pontosPorDia = {};
+  pontos.forEach(p => {
+    if (!p.data) return;
+    pontosPorDia[p.data] = (pontosPorDia[p.data] || 0) + plSimulado20(p);
+  });
+
+  const hoje = new Date();
+  const ano = hoje.getFullYear(), mes = hoje.getMonth();
+  const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+  const primeiroDiaSemana = new Date(ano, mes, 1).getDay();
+
+  let grid = '';
+  for (let i = 0; i < primeiroDiaSemana; i++) grid += `<div></div>`;
+
+  let diasWin = 0, diasRed = 0;
+  for (let d = 1; d <= diasNoMes; d++) {
+    const iso = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const pl = pontosPorDia[iso];
+    let cls = 'bg-[#2c2c2e] border border-white/5 text-gray-400';
+    if (pl !== undefined && pl > 0) { cls = 'bg-green-500/25 border border-green-500/50 text-green-300 font-black'; diasWin++; }
+    else if (pl !== undefined && pl < 0) { cls = 'bg-red-500/25 border border-red-500/50 text-red-300 font-black'; diasRed++; }
+    else if (pl === 0) { cls = 'bg-gray-500/20 border border-gray-500/40 text-gray-300'; }
+    grid += `<div class="p-1.5 rounded-lg text-center ${cls}"><span class="text-[9px] block">${d}</span></div>`;
+  }
+
+  const caption = `<span class="text-green-500 mr-3">🟢 ${diasWin} Dias Win</span><span class="text-red-500">🔴 ${diasRed} Dias Red</span>`;
+  return { grid, caption };
+}
+
+// Clica na linha do método -> abre/fecha o painel de evolução logo abaixo. Monta o
+// conteúdo (gráfico + calendário) só na primeira vez que abre, pra não recalcular
+// à toa a cada toggle.
+function toggleEvolucaoMetodo(rowId) {
+  const el = document.getElementById(rowId);
+  if (!el) return;
+  const estavaEscondido = el.classList.contains('hidden');
+  el.classList.toggle('hidden');
+  if (!estavaEscondido) return; // acabou de fechar, nada a montar
+  if (el.dataset.rendered === '1') return; // já montado numa abertura anterior
+
+  const metodoNome = el.dataset.metodo;
+  const ops = (window.metodoOpsBank && window.metodoOpsBank[el.dataset.bank]) || [];
+  const pontos = evolucaoMetodo(ops, metodoNome);
+  const total = pontos.length ? pontos[pontos.length - 1].acumulado : 0;
+  const cal = renderCalendarioMetodo(pontos);
+
+  el.innerHTML = `
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-[9px] text-gray-500 uppercase font-bold tracking-wider">Evolução (stake simulada $20)</span>
+      <span class="text-sm font-black font-mono ${total >= 0 ? 'text-green-400' : 'text-red-400'}">${total >= 0 ? '+' : ''}R$ ${total.toFixed(2)}</span>
+    </div>
+    ${renderGraficoEvolucao(pontos)}
+    <div class="mt-3 pt-3 border-t border-black/5 dark:border-white/10">
+      <span class="text-[9px] text-gray-500 uppercase font-bold tracking-wider block mb-2">📅 Calendário do Método</span>
+      <div class="grid grid-cols-7 gap-1 text-center text-[8px] font-bold text-gray-500 mb-1"><div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div></div>
+      <div class="grid grid-cols-7 gap-1 text-center">${cal.grid}</div>
+      <div class="text-center text-[9px] font-bold mt-2">${cal.caption}</div>
+    </div>`;
+  el.dataset.rendered = '1';
 }
 
 // Generaliza o agrupamento greens/reds/winRate do calcularMetricasOperacoes pra
@@ -3713,7 +3854,7 @@ function agruparPorChave(ops, chaveFn) {
   return Object.values(map).map(m => {
     const t = m.greens + m.reds;
     return { ...m, total: t, winRate: t > 0 ? Math.round((m.greens / t) * 100) : 0 };
-  }).sort((a, b) => b.total - a.total);
+  }).sort((a, b) => b.winRate - a.winRate || b.total - a.total);
 }
 const chaveTimes = (o) => String(o.jogo || '').split(/\s+x\s+/i).map(s => s.trim()).filter(Boolean);
 const chaveLiga = (o) => { const l = String(o.liga || '').trim(); return l ? [l] : []; };
@@ -3729,7 +3870,7 @@ function renderPainelOperacoes(ops, prefixo, vazioMsg) {
   set('-winrate', `${m.winRate}%`);
   set('-pl', `R$ ${m.pl.toFixed(2)}`);
   const elM = document.getElementById(prefixo + '-metodos');
-  if (elM) elM.innerHTML = renderListaMetodos(m.porMetodo, vazioMsg);
+  if (elM) elM.innerHTML = renderListaMetodos(m.porMetodo, vazioMsg, ops, prefixo);
   const elT = document.getElementById(prefixo + '-times');
   if (elT) elT.innerHTML = renderListaMetodos(agruparPorChave(ops, chaveTimes).slice(0, 10), vazioMsg);
   const elL = document.getElementById(prefixo + '-ligas');
@@ -3813,7 +3954,7 @@ function carregarFinanceiro() {
 
   const metricasManuais = calcularMetricasOperacoes(trades);
   const listaEl = document.getElementById('listaMetodosPL');
-  if (listaEl) listaEl.innerHTML = renderListaMetodos(metricasManuais.porMetodo, 'Nenhuma operação manual registrada ainda.');
+  if (listaEl) listaEl.innerHTML = renderListaMetodos(metricasManuais.porMetodo, 'Nenhuma operação manual registrada ainda.', trades, 'resumo');
 
   renderPainelOperacoes(diarioOperacoes.filter(t => t.origem === 'tips'), 'tips-livro', 'Nenhuma Tip sincronizada ainda. Use "Sincronizar ao Livro" na aba Tips.');
   renderPainelOperacoes(diarioOperacoes.filter(t => t.origem === 'foguete'), 'foguete-livro', 'Nenhuma jogada do Foguete registrada ainda.');

@@ -26,6 +26,14 @@ const NO_RENDER = !!process.env.RENDER;
 // desligamento remoto conseguir fechá-lo em vez de deixar Chromium órfão.
 let navegadorAtivo: any = null;
 
+// Reentrância: nunca dois ciclos de raspagem ao mesmo tempo - dois Chromium juntos
+// na instância free de 512MB do Render é risco real de derrubar o processo.
+let motorEmExecucao = false;
+// Checada entre um jogo e outro (não no meio de uma navegação - fechar o navegador
+// ali já travou o processo inteiro uma vez, ver DESLIGAMENTO REMOTO). Setada pelo
+// agendador quando um horário novo bate com o ciclo anterior ainda rodando.
+let cancelarVarreduraAtual = false;
+
 const servidor = http.createServer((req, res) => {
   const rota = (req.url || "/").split("?")[0];
 
@@ -569,6 +577,13 @@ async function sincronizarAoVivoBackend(manual = false) {
 setInterval(() => { sincronizarAoVivoBackend(false); }, 300000);
 
 async function rodarMotorCompleto(theoTokenManual: string | null = null) {
+  if (motorEmExecucao) {
+    console.log("⏭️  Ciclo já em andamento - chamada ignorada (o cancelamento deveria ter esvaziado isso antes de chamar de novo).");
+    return;
+  }
+  motorEmExecucao = true;
+  cancelarVarreduraAtual = false;
+
   const inicioMs = Date.now();
 
   let tokenTheo = theoTokenManual;
@@ -633,6 +648,8 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
     let jaCapturouDebugH2HAmbos = false; // só grava 1x por execução, não a cada jogo
 
     for (const diaAlvo of diasParaRaspar) {
+        if (cancelarVarreduraAtual) { console.log("🛑 Varredura cancelada (novo horário agendado assumiu)."); break; }
+
         console.log(`\n==================================================`);
         console.log(`📅 PREPARANDO RASPAGEM DO DIA: ${diaAlvo.toUpperCase()}`);
         console.log(`==================================================`);
@@ -874,6 +891,7 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
 
         let count = 0;
         for (const item of listaEstruturada) {
+          if (cancelarVarreduraAtual) { console.log("🛑 Varredura cancelada (novo horário agendado assumiu)."); break; }
           count++;
           try {
             let linkAutenticado = String(item.link || "");
@@ -1349,19 +1367,30 @@ async function rodarMotorCompleto(theoTokenManual: string | null = null) {
     }
 
     const fimMs = Date.now();
-    await atualizarStatusMotor({
-      status: "CONCLUÍDO",
-      ultimoLog: `Processados ${totalJogosNaRodada} jogos. (HOJE, ONTEM e AMANHÃ)`,
-      mensagem: "Varredura concluída com sucesso.",
-      duracaoMinutos: Math.floor((fimMs - inicioMs) / 60000),
-    });
-    console.log(`\n✅ Varredura finalizada. Total de jogos HOJE: ${totalJogosNaRodada}.`);
+    if (cancelarVarreduraAtual) {
+      await atualizarStatusMotor({
+        status: "CANCELADO",
+        ultimoLog: `Cancelado após ${totalJogosNaRodada} jogos - novo horário agendado assumiu.`,
+        mensagem: "Varredura cancelada (novo horário agendado assumiu).",
+        duracaoMinutos: Math.floor((fimMs - inicioMs) / 60000),
+      });
+      console.log(`\n🛑 Varredura interrompida por cancelamento. Total de jogos processados: ${totalJogosNaRodada}.`);
+    } else {
+      await atualizarStatusMotor({
+        status: "CONCLUÍDO",
+        ultimoLog: `Processados ${totalJogosNaRodada} jogos. (HOJE, ONTEM e AMANHÃ)`,
+        mensagem: "Varredura concluída com sucesso.",
+        duracaoMinutos: Math.floor((fimMs - inicioMs) / 60000),
+      });
+      console.log(`\n✅ Varredura finalizada. Total de jogos HOJE: ${totalJogosNaRodada}.`);
+    }
   } catch (globalErr) {
     console.error("❌ ERRO FATAL NO MOTOR:", (globalErr as Error).message);
     await atualizarStatusMotor({ status: "ERRO", mensagem: `Falha: ${(globalErr as Error).message}` });
   } finally {
     if (browser) await browser.close();
     navegadorAtivo = null;
+    motorEmExecucao = false;
   }
 }
 
@@ -1576,6 +1605,71 @@ setInterval(() => {
   atualizarStatusMotor({ heartbeat: Date.now(), ambiente: NO_RENDER ? "Render" : "local" });
 }, 20000);
 atualizarStatusMotor({ heartbeat: Date.now(), ambiente: NO_RENDER ? "Render" : "local" });
+
+// =========================================================================
+// AGENDAMENTO AUTOMÁTICO (4x/dia, sem precisar de clique no Cockpit)
+// =========================================================================
+// Às 06h a raspagem de "hoje" já cobre o dia inteiro desde 00h - jogo que começou de
+// madrugada já aparece com resultado real, não só marcado como "hoje". Reforça de
+// novo às 16h, 21h e 01h.
+const HORARIOS_AGENDADOS = ["06:00", "16:00", "21:00", "01:00"]; // horário de Brasília
+const MAX_LOGS_AGENDADOS = 20;
+let ultimoSlotAgendadoDisparado: string | null = null;
+
+async function registrarLogAgendado(entrada: any, atualizarExistente: boolean) {
+  try {
+    const ref = db.collection("configuracoes").doc("motor_status");
+    const doc = await ref.get();
+    const atual: any[] = (doc.exists && Array.isArray(doc.data()?.logsAgendados)) ? doc.data()!.logsAgendados : [];
+    const novaLista = atualizarExistente
+      ? atual.map(l => l.id === entrada.id ? entrada : l)
+      : [...atual, entrada].slice(-MAX_LOGS_AGENDADOS);
+    await ref.set({ logsAgendados: novaLista }, { merge: true });
+  } catch (e) {}
+}
+
+async function dispararCicloAgendado(horario: string) {
+  // Ciclo anterior ainda rodando: cancela e espera esvaziar antes de começar o novo -
+  // nunca dois Chromium ao mesmo tempo (reentrância tratada dentro de rodarMotorCompleto).
+  if (motorEmExecucao) {
+    console.log(`⏹️  Horário agendado (${horario}) bateu com ciclo anterior ainda rodando - cancelando o antigo...`);
+    cancelarVarreduraAtual = true;
+    const esperaAte = Date.now() + 120000;
+    while (motorEmExecucao && Date.now() < esperaAte) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    if (motorEmExecucao) {
+      console.error(`❌ Ciclo anterior não cancelou a tempo - pulando o horário das ${horario} pra não rodar dois juntos.`);
+      return;
+    }
+  }
+
+  const id = Date.now();
+  const inicio = Date.now();
+  await registrarLogAgendado({ id, horario, data: dataLocalStr(agoraSaoPaulo()), inicio, fim: null, status: "EXECUTANDO", mensagem: "" }, false);
+
+  try {
+    await rodarMotorCompleto();
+  } finally {
+    const statusFinal = await db.collection("configuracoes").doc("motor_status").get().catch(() => null);
+    const st = statusFinal?.data();
+    await registrarLogAgendado({
+      id, horario, data: dataLocalStr(agoraSaoPaulo()), inicio, fim: Date.now(),
+      status: st?.status || "ERRO", mensagem: st?.mensagem || ""
+    }, true);
+  }
+}
+
+setInterval(() => {
+  const agora = agoraSaoPaulo();
+  const hhmm = `${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
+  if (!HORARIOS_AGENDADOS.includes(hhmm)) return;
+  const slot = `${dataLocalStr(agora)} ${hhmm}`;
+  if (slot === ultimoSlotAgendadoDisparado) return;
+  ultimoSlotAgendadoDisparado = slot;
+  console.log(`⏰ Horário agendado batido: ${hhmm} (Brasília).`);
+  dispararCicloAgendado(hhmm).catch(e => console.error(`⚠️ [NÃO FATAL] Ciclo agendado falhou: ${e?.message || e}`));
+}, 60000);
 
 // =========================================================================
 // ARRANQUE
