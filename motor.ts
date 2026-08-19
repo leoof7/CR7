@@ -572,9 +572,11 @@ async function sincronizarAoVivoBackend(manual = false) {
   }
 }
 
-// Tick automático de 5 min. O governador de quota é quem decide se a requisição
-// sai de fato - este intervalo é só a oportunidade de tentar.
-setInterval(() => { sincronizarAoVivoBackend(false); }, 300000);
+// O site do Theo não é ao vivo de verdade (atualiza em lote, horas depois do jogo
+// acabar) - manter um tick automático de placar "ao vivo" a cada 5 min 24h/dia só
+// queimava cota de escrita do Firestore sem valor real. Sincronizar sob pedido
+// (botão "Testar Conexões" do Cockpit, via sincronizarAoVivoBackend(true) abaixo)
+// continua disponível pra quem quiser conferir na hora.
 
 async function rodarMotorCompleto(theoTokenManual: string | null = null) {
   if (motorEmExecucao) {
@@ -1572,6 +1574,65 @@ async function tratarDesligamento(data: any, ehPrimeiraLeitura: boolean) {
 }
 
 // =========================================================================
+// RESOLUÇÃO DE MOTOR DUPLICADO (local + Render rodando junto, ou dois deploys)
+// =========================================================================
+// Dois motores vivos ao mesmo tempo escrevem no mesmo Firestore em dobro (heartbeat,
+// varreduras, tudo) - foi isso que estourou a cota de escrita. Regra: um motor mais
+// novo sempre derruba o antigo (mesmo canal do "Desarmar Motor" antigo, só que
+// automático) - a menos que o antigo já esteja no meio de uma varredura há mais de
+// 1h, aí o novo espera e tenta de novo daqui 1h, em vez de brigar pela vez.
+const LIMITE_HEARTBEAT_VIVO_MS = 60000; // acima disso, considera o motor anterior morto
+const LIMITE_CICLO_LONGO_MS = 60 * 60 * 1000; // 1h
+
+async function resolverMotorDuplicado(): Promise<boolean> {
+  let data: any;
+  try {
+    const doc = await db.collection("configuracoes").doc("motor_status").get();
+    data = doc.exists ? doc.data() : null;
+  } catch (e) {
+    return true; // não deu pra checar - segue sem travar o boot por causa disso
+  }
+  if (!data || !data.heartbeat) return true; // nunca teve motor antes
+
+  const segundosParado = (Date.now() - Number(data.heartbeat)) / 1000;
+  if (segundosParado * 1000 > LIMITE_HEARTBEAT_VIVO_MS) return true; // motor anterior morto/travado
+
+  const cicloLongo = data.status === "EXECUTANDO" && data.inicioTimestamp
+    && (Date.now() - Number(data.inicioTimestamp)) > LIMITE_CICLO_LONGO_MS;
+  if (cicloLongo) {
+    console.log(`⏳ Motor anterior (${data.ambiente || "?"}) está no meio de uma varredura há mais de 1h - aguardando, sem derrubar.`);
+    return false;
+  }
+
+  console.log(`⚔️  Motor anterior (${data.ambiente || "?"}) ainda vivo (heartbeat de ${Math.round(segundosParado)}s atrás) - derrubando pra assumir...`);
+  try {
+    await db.collection("configuracoes").doc("motor").set({ desligar_pedido: Date.now() }, { merge: true });
+  } catch (e) {}
+  // Dá tempo do antigo perceber o pedido, fechar o Chromium e sair - desligarMotor()
+  // leva ~400ms, mais round-trip do Firestore. 5s é folga generosa.
+  await new Promise(r => setTimeout(r, 5000));
+
+  try {
+    // desligarMotor() grava heartbeat: 0 ao sair - é essa a confirmação, não só
+    // "o valor mudou" (o antigo bate heartbeat a cada 20s, um valor novo sozinho
+    // não prova que recebeu o pedido).
+    const confirmacao = await db.collection("configuracoes").doc("motor_status").get();
+    const heartbeatDepois = Number(confirmacao.data()?.heartbeat) || 0;
+    if (heartbeatDepois === 0) {
+      console.log("✅ Motor anterior confirmou o desligamento (heartbeat zerado).");
+    } else {
+      console.log("⚠️ Motor anterior não confirmou o desligamento a tempo - assumindo mesmo assim.");
+    }
+  } catch (e) {}
+  return true;
+}
+
+// A partir daqui é tudo comportamento de "motor ativo" (escuta, batimento,
+// agendamento, arranque) - só entra em vigor depois que resolverMotorDuplicado()
+// (chamada lá embaixo) confirmar que não tem outro motor vivo disputando a vez.
+function ativarComoMotorPrincipal() {
+
+// =========================================================================
 // ESCUTA ÚNICA DO COCKPIT
 // =========================================================================
 // Antes eram TRÊS setInterval de 3s, cada um fazendo seu próprio .get() no mesmo
@@ -1695,9 +1756,9 @@ try {
 // =========================================================================
 console.log("=========================================================");
 console.log("⚙️ MOTOR FIRESTORE PRONTO");
-console.log(`   • Placares ao vivo (API-Sports) ....... a cada 5 min`);
-console.log(`   • Escuta do Cockpit (tempo real) ...... varredura, teste,`);
-console.log(`     atualização de placar e desarme ..... chegam na hora`);
+console.log(`   • Varredura agendada .................. 06h/16h/21h/01h`);
+console.log(`   • Escuta do Cockpit (tempo real) ...... teste e`);
+console.log(`     atualização de placar manual ........ chegam na hora`);
 console.log(`   • Batimento pro app saber que estou vivo  a cada 20s`);
 console.log("=========================================================\n");
 
@@ -1708,10 +1769,24 @@ console.log("=========================================================\n");
 // comportamento é o de sempre: varre na subida.
 if (process.env.MOTOR_SEM_RASPAGEM === "1") {
   console.log("🚫 [CONFIG] MOTOR_SEM_RASPAGEM=1 - varredura inicial desativada.");
-  console.log("   As escutas do Cockpit seguem ativas: o botão \"Salvar & Rodar\" ainda dispara a raspagem sob demanda.\n");
+  console.log("   As escutas do Cockpit seguem ativas e o agendamento (06h/16h/21h/01h) roda normalmente.\n");
 } else {
   rodarMotorCompleto().catch(e => {
     console.error(`⚠️ [NÃO FATAL] A varredura inicial falhou: ${e?.message || e}`);
     console.error("   O servidor HTTP e as escutas do Firestore seguem no ar.");
   });
 }
+
+} // fim de ativarComoMotorPrincipal()
+
+// Só um motor por vez: se outro estiver vivo, tenta derrubá-lo (ver
+// resolverMotorDuplicado); se esse outro estiver numa varredura longa (>1h), espera
+// e tenta de novo daqui 1h, em loop, até conseguir assumir.
+(async () => {
+  let podeAssumir = await resolverMotorDuplicado();
+  while (!podeAssumir) {
+    await new Promise(r => setTimeout(r, LIMITE_CICLO_LONGO_MS));
+    podeAssumir = await resolverMotorDuplicado();
+  }
+  ativarComoMotorPrincipal();
+})();
