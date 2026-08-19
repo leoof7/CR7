@@ -1672,6 +1672,25 @@ setInterval(() => {
 }, 60000);
 
 // =========================================================================
+// GARANTIA DO CHROMIUM
+// =========================================================================
+// O Render às vezes reaproveita o node_modules em cache e pula o postinstall
+// (`playwright install chromium`) quando nenhum arquivo de dependência muda - aí a
+// primeira raspagem morre com "Executable doesn't exist" e nenhum jogo é
+// processado, sem ninguém perceber até checar o log. Roda aqui, uma vez, depois do
+// servidor HTTP já estar escutando (não atrasa o health check do Render): se o
+// Chromium já está no caminho certo é rápido/no-op; se sumiu, baixa agora, antes de
+// qualquer tentativa de raspagem (inicial, agendada ou manual).
+try {
+  console.log("🔍 Conferindo instalação do Chromium (Playwright)...");
+  execSync("npx playwright install chromium", { stdio: "inherit" });
+  console.log("✅ Chromium OK.\n");
+} catch (e: any) {
+  console.error(`⚠️ [NÃO FATAL] Falha ao garantir o Chromium: ${e?.message || e}`);
+  console.error("   A raspagem provavelmente vai falhar até isso ser resolvido manualmente no Render.\n");
+}
+
+// =========================================================================
 // ARRANQUE
 // =========================================================================
 console.log("=========================================================");
